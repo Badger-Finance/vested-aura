@@ -10,8 +10,7 @@ import {BaseStrategy} from "@badger-finance/BaseStrategy.sol";
 
 import {IVault} from "../interfaces/badger/IVault.sol";
 import {IAuraLocker} from "../interfaces/aura/IAuraLocker.sol";
-import {IVotingSnapshot} from "../interfaces/oxd/IVotingSnapshot.sol";
-import {route, IBaseV1Router01} from "../interfaces/solidly/IBaseV1Router01.sol";
+
 
 contract MyStrategy is BaseStrategy {
     using SafeERC20Upgradeable for IERC20Upgradeable;
@@ -43,8 +42,9 @@ contract MyStrategy is BaseStrategy {
 
         want = address(AURA);
 
+        /// @dev do one off approvals here
+        // Permissions for Locker
         AURA.safeApprove(address(LOCKER), type(uint256).max);
-        VOTING_SNAPSHOT.setVoteDelegate(INITIAL_DELEGATE);
         AURABAL.safeApprove(address(AURABAL_VAULT), type(uint256).max);
 
         autoCompoundRatio = MAX_BPS;
@@ -104,7 +104,7 @@ contract MyStrategy is BaseStrategy {
     /// @dev Return the balance of rewards that the strategy has accrued
     /// @notice Used for offChain APY and Harvest Health monitoring
     function balanceOfRewards() external view override returns (TokenAmount[] memory rewards) {
-        IVlOxd.EarnedData[] memory earnedData = LOCKER.claimableRewards(address(this));
+        IAuraLocker.EarnedData[] memory earnedData = LOCKER.claimableRewards(address(this));
         uint256 numRewards = earnedData.length;
         rewards = new TokenAmount[](numRewards);
         for (uint256 i; i < numRewards; ++i) {
@@ -117,8 +117,8 @@ contract MyStrategy is BaseStrategy {
     /// @notice this provides security guarantees to the depositors they can't be sweeped away
     function getProtectedTokens() public view virtual override returns (address[] memory) {
         address[] memory protectedTokens = new address[](2);
-        protectedTokens[0] = want; // OXD
-        protectedTokens[1] = address(OXSOLID);
+        protectedTokens[0] = want; // AURA
+        protectedTokens[1] = address(AURABAL);
         return protectedTokens;
     }
 
@@ -130,7 +130,7 @@ contract MyStrategy is BaseStrategy {
         LOCKER.lock(address(this), _amount, getBoostPayment());
     }
 
-    /// @dev utility function to withdraw all OXD that we can from the lock
+    /// @dev utility function to withdraw all AURA that we can from the lock
     function prepareWithdrawAll() external {
         manualProcessExpiredLocks();
     }
@@ -197,7 +197,7 @@ contract MyStrategy is BaseStrategy {
 
     /// MANUAL FUNCTIONS ///
 
-    /// @dev manual function to reinvest all OXD that was locked
+    /// @dev manual function to reinvest all Aura that was locked
     function reinvest() external whenNotPaused returns (uint256) {
         _onlyGovernance();
 
@@ -206,10 +206,10 @@ contract MyStrategy is BaseStrategy {
             LOCKER.processExpiredLocks(false);
         }
 
-        // Redeposit all into veOXD
+        // Redeposit all into vlAURA
         uint256 toDeposit = IERC20Upgradeable(want).balanceOf(address(this));
 
-        // Redeposit into veOXD
+        // Redeposit into vlAURA
         _deposit(toDeposit);
 
         return toDeposit;
@@ -218,15 +218,15 @@ contract MyStrategy is BaseStrategy {
     /// @dev process all locks, to redeem
     /// @notice No Access Control Checks, anyone can unlock an expired lock
     function manualProcessExpiredLocks() public whenNotPaused {
-        // Unlock vlOXD that is expired and redeem OXD back to this strat
+        // Unlock vlAURA that is expired and redeem AURA back to this strat
         LOCKER.processExpiredLocks(false);
     }
 
-    /// @dev Send all available OXD to the Vault
+    /// @dev Send all available Aura to the Vault
     /// @notice you can do this so you can earn again (re-lock), or just to add to the redemption pool
-    function manualSendOXDToVault() external whenNotPaused {
+    function manualSendAuraToVault() external whenNotPaused {
         _onlyGovernance();
-        uint256 oxdAmount = balanceOfWant();
-        _transferToVault(oxdAmount);
+        uint256 auraAmount = balanceOfWant();
+        _transferToVault(auraAmount);
     }
 }
