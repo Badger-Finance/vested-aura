@@ -9,7 +9,7 @@ import {SafeERC20Upgradeable} from "@openzeppelin-contracts-upgradeable/token/ER
 import {BaseStrategy} from "@badger-finance/BaseStrategy.sol";
 
 import {IVault} from "../interfaces/badger/IVault.sol";
-import {IVlOxd} from "../interfaces/oxd/IVlOxd.sol";
+import {IAuraLocker} from "../interfaces/aura/IAuraLocker.sol";
 import {IVotingSnapshot} from "../interfaces/oxd/IVotingSnapshot.sol";
 import {route, IBaseV1Router01} from "../interfaces/solidly/IBaseV1Router01.sol";
 
@@ -22,16 +22,13 @@ contract MyStrategy is BaseStrategy {
     // If nothing is unlocked, processExpiredLocks will revert
     bool public processLocksOnReinvest = false;
 
-    IVlOxd public constant LOCKER = IVlOxd(0xDA00527EDAabCe6F97D89aDb10395f719E5559b9);
+    address public constant BADGER_TREE = 0x660802Fc641b154aBA66a62137e71f331B6d787A;
 
-    IERC20Upgradeable public constant OXD = IERC20Upgradeable(0xc5A9848b9d145965d821AaeC8fA32aaEE026492d);
-    IERC20Upgradeable public constant OXSOLID = IERC20Upgradeable(0xDA0053F0bEfCbcaC208A3f867BB243716734D809);
-    IERC20Upgradeable public constant SOLID = IERC20Upgradeable(0x888EF71766ca594DED1F0FA3AE64eD2941740A20);
-    IERC20Upgradeable public constant WFTM = IERC20Upgradeable(0x21be370D5312f44cB42ce377BC9b8a0cEF1A4C83);
+    IAuraLocker public constant LOCKER = IAuraLocker(0xDA00527EDAabCe6F97D89aDb10395f719E5559b9);
 
-    IVotingSnapshot public constant VOTING_SNAPSHOT = IVotingSnapshot(0xDA007a39a692B0feFe9c6cb1a185feAb2722c4fD);
-
-    IBaseV1Router01 public constant SOLIDLY_ROUTER = IBaseV1Router01(0xa38cd27185a464914D3046f0AB9d43356B34829D);
+    IERC20Upgradeable public constant AURA = IERC20Upgradeable(0xc5A9848b9d145965d821AaeC8fA32aaEE026492d);
+    IERC20Upgradeable public constant AURABAL = IERC20Upgradeable(0xDA0053F0bEfCbcaC208A3f867BB243716734D809);
+    IVault public constant AURABAL_VAULT = IVault();
 
     // The initial INITIAL_DELEGATE for the strategy // NOTE we can change it by using manualSetDelegate below
     address public constant INITIAL_DELEGATE = address(0x781E82D5D49042baB750efac91858cB65C6b0582);
@@ -40,16 +37,15 @@ contract MyStrategy is BaseStrategy {
     /// @notice Proxies will set any non constant variable you declare as default value
     /// @dev add any extra changeable variable at end of initializer as shown
     function initialize(address _vault) public initializer {
-        assert(IVault(_vault).token() == address(OXD));
+        assert(IVault(_vault).token() == address(AURA));
 
         __BaseStrategy_init(_vault);
 
-        want = address(OXD);
+        want = address(AURA);
 
-        OXD.safeApprove(address(LOCKER), type(uint256).max);
+        AURA.safeApprove(address(LOCKER), type(uint256).max);
         VOTING_SNAPSHOT.setVoteDelegate(INITIAL_DELEGATE);
-
-        OXSOLID.safeApprove(address(SOLIDLY_ROUTER), type(uint256).max);
+        AURABAL.safeApprove(address(AURABAL_VAULT), type(uint256).max);
 
         autoCompoundRatio = MAX_BPS;
     }
@@ -86,12 +82,12 @@ contract MyStrategy is BaseStrategy {
 
     /// @dev Return the name of the strategy
     function getName() external pure override returns (string memory) {
-        return "vlOXD Voting Strategy";
+        return "vlAURA Voting Strategy";
     }
 
     /// @dev Specify the version of the Strategy, for upgrades
     function version() external pure returns (string memory) {
-        return "1.5";
+        return "1.0";
     }
 
     /// @dev Does this function require `tend` to be called?
@@ -174,32 +170,24 @@ contract MyStrategy is BaseStrategy {
     }
 
     function _harvest() internal override returns (TokenAmount[] memory harvested) {
-        uint256 wantBalanceBefore = balanceOfWant();
+        uint256 rewardBalanceBefore = IERC20Upgradeable(AURABAL).balanceOf(address(this));
 
-        LOCKER.getReward();
+        // Get auraBal
+        LOCKER.getReward(address(this));
 
-        harvested = new TokenAmount[](1);
-        harvested[0].token = address(OXD); // want
+        uint256 earnedReward =
+            IERC20Upgradeable(AURABAL).balanceOf(address(this)).sub(_beforeReward);
 
-        // OXSOLID --> SOLID --> WFTM --> OXD
-        uint256 oxSolidBalance = OXSOLID.balanceOf(address(this));
-        if (oxSolidBalance > 0) {
-            route[] memory routeArray = new route[](3);
+        // Send rest of earned to tree //We send all rest to avoid dust and avoid protecting the token
+        // We take difference of vault token to emit the event in shares rather than underlying
+        uint256 auraBALInitialBalance = AURABAL_VAULT.balanceOf(BADGER_TREE);
+        uint256 auraBalToTree = IERC20Upgradeable(AURABAL).balanceOf(address(this));
 
-            (, bool stable) = SOLIDLY_ROUTER.getAmountOut(oxSolidBalance, address(OXSOLID), address(SOLID));
+        // Deposit into auraBal vault and send to tree
+        AURABAL_VAULT.depositFor(BADGER_TREE, auraBalToTree);
+        uint256 auraBALAfterBalance = AURABAL_VAULT.balanceOf(BADGER_TREE);
+        emit TreeDistribution(address(AURABAL_VAULT), auraBALAfterBalance.sub(auraBALInitialBalance), block.number, block.timestamp);
 
-            routeArray[0] = route(address(OXSOLID), address(SOLID), stable);
-            routeArray[1] = route(address(SOLID), address(WFTM), false);
-            routeArray[2] = route(address(WFTM), address(OXD), false);
-
-            SOLIDLY_ROUTER.swapExactTokensForTokens(oxSolidBalance, 0, routeArray, address(this), block.timestamp);
-        }
-
-        harvested[0].amount = balanceOfWant().sub(wantBalanceBefore);
-
-        _reportToVault(harvested[0].amount);
-
-        _deposit(harvested[0].amount);
     }
 
     // Example tend is a no-op which returns the values, could also just revert
