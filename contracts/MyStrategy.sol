@@ -57,7 +57,7 @@ contract MyStrategy is BaseStrategy {
     function manualSetDelegate(address delegate) external {
         _onlyGovernance();
         // Set delegate is enough as it will clear previous delegate automatically
-        VOTING_SNAPSHOT.setVoteDelegate(delegate);
+        //TODO: Figure out Voting snapshot for aura
     }
 
     ///@dev Should we check if the amount requested is more than what we can return on withdrawal?
@@ -190,6 +190,7 @@ contract MyStrategy is BaseStrategy {
         emit TreeDistribution(address(AURABAL_VAULT), auraBALAfterBalance.sub(auraBALInitialBalance), block.number, block.timestamp);
 
     }
+
     /// @dev allows claiming of multiple bribes, badger is sent to tree
     /// @notice Hidden hand only allows to claim all tokens at once, not individually 
     /// @notice allows claiming any token as it uses the difference in balance
@@ -265,4 +266,5 @@ contract MyStrategy is BaseStrategy {
     function _getPricePerFullShare() internal returns (uint256) {
         return IVault(vault).getPricePerFullShare();
     }
+    
 }
