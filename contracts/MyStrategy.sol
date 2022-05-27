@@ -190,6 +190,30 @@ contract MyStrategy is BaseStrategy {
 
     }
 
+    function claimBribesFromHiddenHand(
+        IRewardDistributor hiddenHandDistributor,
+        Claim[] calldata _claims
+    ) external {
+        uint256[] memory beforeBalance = new uint256[](_claims.length);
+        uint256 beforeVaultBalance = _getBalance();
+        uint256 beforePricePerFullShare = _getPricePerFullShare();
+
+        // Track token balances before bribes claim
+        for(uint i = 0; i < _claims.length; i++){
+            address token = hiddenHandDistributor.rewards[_claims[i].identifier].token;
+            beforeBalance[i] = IERC20Upgradeable(token).balanceOf(address(this));
+        }
+        // Claim bribes
+        hiddenHandDistributor.claim(_claims);
+
+        for(uint i = 0; i < _claims.length; i++) {
+             address token = hiddenHandDistributor.rewards[_claims[i].identifier].token;
+            _handleRewardTransfer(token, IERC20Upgradeable(token).balanceOf(address(this)).sub(beforeBalance[i]));
+        }
+        require(beforeVaultBalance == _getBalance(), "Balance can't change");
+        require(beforePricePerFullShare == _getPricePerFullShare(), "Ppfs can't change");
+    }
+
     // Example tend is a no-op which returns the values, could also just revert
     function _tend() internal override returns (TokenAmount[] memory tended) {
         revert("no op");
@@ -228,5 +252,13 @@ contract MyStrategy is BaseStrategy {
         _onlyGovernance();
         uint256 auraAmount = balanceOfWant();
         _transferToVault(auraAmount);
+    }
+
+    function _getBalance() internal returns (uint256) {
+        return IVault(vault).balance();
+    }
+
+    function _getPricePerFullShare() internal returns (uint256) {
+        return IVault(vault).getPricePerFullShare();
     }
 }
