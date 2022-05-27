@@ -10,7 +10,7 @@ import {BaseStrategy} from "@badger-finance/BaseStrategy.sol";
 
 import {IVault} from "../interfaces/badger/IVault.sol";
 import {IAuraLocker} from "../interfaces/aura/IAuraLocker.sol";
-
+import {IRewardDistributor} from "../interfaces/hiddehand/IRewardDistributor.sol";
 
 contract MyStrategy is BaseStrategy {
     using SafeERC20Upgradeable for IERC20Upgradeable;
@@ -27,6 +27,7 @@ contract MyStrategy is BaseStrategy {
 
     IERC20Upgradeable public constant AURA = IERC20Upgradeable(0xc5A9848b9d145965d821AaeC8fA32aaEE026492d);
     IERC20Upgradeable public constant AURABAL = IERC20Upgradeable(0xDA0053F0bEfCbcaC208A3f867BB243716734D809);
+    //TODO: Make aurabal vault
     IVault public constant AURABAL_VAULT = IVault();
 
     // The initial INITIAL_DELEGATE for the strategy // NOTE we can change it by using manualSetDelegate below
@@ -189,7 +190,9 @@ contract MyStrategy is BaseStrategy {
         emit TreeDistribution(address(AURABAL_VAULT), auraBALAfterBalance.sub(auraBALInitialBalance), block.number, block.timestamp);
 
     }
-
+    /// @dev allows claiming of multiple bribes, badger is sent to tree
+    /// @notice Hidden hand only allows to claim all tokens at once, not individually 
+    /// @notice allows claiming any token as it uses the difference in balance
     function claimBribesFromHiddenHand(
         IRewardDistributor hiddenHandDistributor,
         Claim[] calldata _claims
@@ -208,6 +211,7 @@ contract MyStrategy is BaseStrategy {
 
         for(uint i = 0; i < _claims.length; i++) {
              address token = hiddenHandDistributor.rewards[_claims[i].identifier].token;
+             //TODO: implement _handleRewardTransfer
             _handleRewardTransfer(token, IERC20Upgradeable(token).balanceOf(address(this)).sub(beforeBalance[i]));
         }
         require(beforeVaultBalance == _getBalance(), "Balance can't change");
