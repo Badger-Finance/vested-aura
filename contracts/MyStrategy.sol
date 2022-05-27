@@ -11,6 +11,7 @@ import {BaseStrategy} from "@badger-finance/BaseStrategy.sol";
 import {IVault} from "../interfaces/badger/IVault.sol";
 import {IAuraLocker} from "../interfaces/aura/IAuraLocker.sol";
 import {IRewardDistributor} from "../interfaces/hiddehand/IRewardDistributor.sol";
+import {IDelegateRegistry} from "../interfaces/snapshot/IDelegateRegistry.sol";
 
 contract MyStrategy is BaseStrategy {
     using SafeERC20Upgradeable for IERC20Upgradeable;
@@ -30,6 +31,13 @@ contract MyStrategy is BaseStrategy {
     //TODO: Make aurabal vault
     IVault public constant AURABAL_VAULT = IVault();
 
+
+    IDelegateRegistry public constant SNAPSHOT =
+        IDelegateRegistry(0x469788fE6E9E9681C6ebF3bF78e7Fd26Fc015446);
+
+    bytes32 public constant DELEGATED_SPACE =
+        0x6376782e65746800000000000000000000000000000000000000000000000000;
+
     // The initial INITIAL_DELEGATE for the strategy // NOTE we can change it by using manualSetDelegate below
     address public constant INITIAL_DELEGATE = address(0x781E82D5D49042baB750efac91858cB65C6b0582);
 
@@ -48,6 +56,8 @@ contract MyStrategy is BaseStrategy {
         AURA.safeApprove(address(LOCKER), type(uint256).max);
         AURABAL.safeApprove(address(AURABAL_VAULT), type(uint256).max);
 
+        // Delegate voting to INITIAL_DELEGATE
+        SNAPSHOT.setDelegate(DELEGATED_SPACE, INITIAL_DELEGATE);
         autoCompoundRatio = MAX_BPS;
     }
 
@@ -57,7 +67,7 @@ contract MyStrategy is BaseStrategy {
     function manualSetDelegate(address delegate) external {
         _onlyGovernance();
         // Set delegate is enough as it will clear previous delegate automatically
-        //TODO: Figure out Voting snapshot for aura
+        SNAPSHOT.setDelegate(DELEGATED_SPACE, delegate);
     }
 
     ///@dev Should we check if the amount requested is more than what we can return on withdrawal?
@@ -266,5 +276,5 @@ contract MyStrategy is BaseStrategy {
     function _getPricePerFullShare() internal returns (uint256) {
         return IVault(vault).getPricePerFullShare();
     }
-    
+
 }
