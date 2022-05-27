@@ -12,6 +12,7 @@ import {IVault} from "../interfaces/badger/IVault.sol";
 import {IAuraLocker} from "../interfaces/aura/IAuraLocker.sol";
 import {IRewardDistributor} from "../interfaces/hiddehand/IRewardDistributor.sol";
 import {IDelegateRegistry} from "../interfaces/snapshot/IDelegateRegistry.sol";
+import {IBribesProcessor} from "../interfaces/snapshot/IBribesProcessor.sol";
 
 contract MyStrategy is BaseStrategy {
     using SafeERC20Upgradeable for IERC20Upgradeable;
@@ -22,15 +23,17 @@ contract MyStrategy is BaseStrategy {
     // If nothing is unlocked, processExpiredLocks will revert
     bool public processLocksOnReinvest = false;
 
-    address public constant BADGER_TREE = 0x660802Fc641b154aBA66a62137e71f331B6d787A;
+    address public constant BADGER_TREE = address(0x660802Fc641b154aBA66a62137e71f331B6d787A);
+
+    address public constant BADGER = address(0x3472A5A71965499acd81997a54BBA8D852C6E53d);
 
     IAuraLocker public constant LOCKER = IAuraLocker(0xDA00527EDAabCe6F97D89aDb10395f719E5559b9);
 
     IERC20Upgradeable public constant AURA = IERC20Upgradeable(0xc5A9848b9d145965d821AaeC8fA32aaEE026492d);
+
     IERC20Upgradeable public constant AURABAL = IERC20Upgradeable(0xDA0053F0bEfCbcaC208A3f867BB243716734D809);
     //TODO: Make aurabal vault
     IVault public constant AURABAL_VAULT = IVault();
-
 
     IDelegateRegistry public constant SNAPSHOT =
         IDelegateRegistry(0x469788fE6E9E9681C6ebF3bF78e7Fd26Fc015446);
@@ -41,6 +44,8 @@ contract MyStrategy is BaseStrategy {
     // The initial INITIAL_DELEGATE for the strategy // NOTE we can change it by using manualSetDelegate below
     address public constant INITIAL_DELEGATE = address(0x781E82D5D49042baB750efac91858cB65C6b0582);
 
+    address public constant BRIBES_PROCESSOR = address(0xb2Bf1d48F2C2132913278672e6924efda3385de2);
+    
     /// @dev Initialize the Strategy with security settings as well as tokens
     /// @notice Proxies will set any non constant variable you declare as default value
     /// @dev add any extra changeable variable at end of initializer as shown
@@ -183,6 +188,9 @@ contract MyStrategy is BaseStrategy {
     function _harvest() internal override returns (TokenAmount[] memory harvested) {
         uint256 rewardBalanceBefore = IERC20Upgradeable(AURABAL).balanceOf(address(this));
 
+        harvested = new TokenAmount[](1);
+        harvested[0].token = AURABAL;
+        harvested[0].amount = 0;
         // Get auraBal
         LOCKER.getReward(address(this));
 
@@ -197,8 +205,11 @@ contract MyStrategy is BaseStrategy {
         // Deposit into auraBal vault and send to tree
         AURABAL_VAULT.depositFor(BADGER_TREE, auraBalToTree);
         uint256 auraBALAfterBalance = AURABAL_VAULT.balanceOf(BADGER_TREE);
-        emit TreeDistribution(address(AURABAL_VAULT), auraBALAfterBalance.sub(auraBALInitialBalance), block.number, block.timestamp);
 
+        // Emits vault token to tree and handles fees
+        _processExtraToken(address(AURABAL_VAULT), auraBALAfterBalance.sub(auraBALInitialBalance));
+
+        _reportToVault(harvested[0].amount);
     }
 
     /// @dev allows claiming of multiple bribes, badger is sent to tree
@@ -220,11 +231,22 @@ contract MyStrategy is BaseStrategy {
         // Claim bribes
         hiddenHandDistributor.claim(_claims);
 
+         bool nonZeroDiff; // Cached value but also to check if we need to notifyProcessor
+        // Ultimately it's proof of non-zero which is good enough
+
         for(uint i = 0; i < _claims.length; i++) {
-             address token = hiddenHandDistributor.rewards[_claims[i].identifier].token;
-             //TODO: implement _handleRewardTransfer
-            _handleRewardTransfer(token, IERC20Upgradeable(token).balanceOf(address(this)).sub(beforeBalance[i]));
+            address token = hiddenHandDistributor.rewards[_claims[i].identifier].token;
+            uint256 difference = IERC20Upgradeable(token).balanceOf(address(this)).sub(beforeBalance[i]);
+            if(difference > 0){
+                nonZeroDiff = true;
+                _handleRewardTransfer(token, difference);
+            }
         }
+        
+        if(nonZeroDiff) {
+            _notifyBribesProcessor();
+        }
+
         require(beforeVaultBalance == _getBalance(), "Balance can't change");
         require(beforePricePerFullShare == _getPricePerFullShare(), "Ppfs can't change");
     }
@@ -275,6 +297,34 @@ contract MyStrategy is BaseStrategy {
 
     function _getPricePerFullShare() internal returns (uint256) {
         return IVault(vault).getPricePerFullShare();
+    }
+
+    /// *** Handling of rewards ***
+    function _handleRewardTransfer(address token, uint256 amount) internal {
+        // NOTE: BADGER is emitted through the tree
+        if (token == BADGER){
+            _sendBadgerToTree(amount);
+        } else {
+        // NOTE: All other tokens are sent to bribes processor
+            _sendTokenToBribesProcessor(token, amount);
+        }
+    }
+
+    /// @dev Notify the BribesProcessor that a new round of bribes has happened
+    function _notifyBribesProcessor() internal {
+        IBribesProcessor(BRIBES_PROCESSOR).notifyNewRound();
+    }
+
+    /// @dev Send funds to the bribes receiver
+    function _sendTokenToBribesProcessor(address token, uint256 amount) internal {
+        IERC20Upgradeable(token).safeTransfer(BRIBES_PROCESSOR, amount);
+        emit RewardsCollected(token, amount);
+    }
+
+    /// @dev Send the BADGER token to the badgerTree
+    function _sendBadgerToTree(uint256 amount) internal {
+        IERC20Upgradeable(BADGER).safeTransfer(BADGER_TREE, amount);
+        _processExtraToken(address(BADGER), amount);
     }
 
 }
