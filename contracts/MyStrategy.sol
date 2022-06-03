@@ -9,7 +9,8 @@ import {SafeERC20Upgradeable} from "@openzeppelin-contracts-upgradeable/token/ER
 import {BaseStrategy} from "@badger-finance/BaseStrategy.sol";
 
 import {IVault} from "../interfaces/badger/IVault.sol";
-import {IBalancerVault} from "../interfaces/balancer/IBalancerVault.sol"
+import {IAsset} from "../interfaces/balancer/IAsset.sol"
+import {ExitKind, IBalancerVault} from "../interfaces/balancer/IBalancerVault.sol"
 import {IAuraLocker} from "../interfaces/aura/IAuraLocker.sol";
 import {IRewardDistributor} from "../interfaces/hiddehand/IRewardDistributor.sol";
 import {IDelegateRegistry} from "../interfaces/snapshot/IDelegateRegistry.sol";
@@ -30,11 +31,18 @@ contract MyStrategy is BaseStrategy {
 
     IAuraLocker public constant LOCKER = IAuraLocker(0xDA00527EDAabCe6F97D89aDb10395f719E5559b9);
 
-    IBalancerVault public constant BALANCER_VAULT(0xBA12222222228d8Ba445958a75a0704d566BF2C8)
+    IBalancerVault public constant BALANCER_VAULT = IBalancerVault(0xBA12222222228d8Ba445958a75a0704d566BF2C8)
 
-    IERC20Upgradeable public constant AURA = IERC20Upgradeable(0xc5A9848b9d145965d821AaeC8fA32aaEE026492d);
+    IERC20Upgradeable public constant WETH = IERC20Upgradeable(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
+    IERC20Upgradeable public constant AURA = IERC20Upgradeable(address(0));
+    IERC20Upgradeable public constant AURABAL = IERC20Upgradeable(address(0));
+    IERC20Upgradeable public constant BALETH_BPT = IERC20Upgradeable(0x5c6Ee304399DBdB9C8Ef030aB642B10820DB8F56);
 
-    IERC20Upgradeable public constant AURABAL = IERC20Upgradeable(0xDA0053F0bEfCbcaC208A3f867BB243716734D809);
+    bytes32 public constant AURABAL_BALETH_BPT_POOL_ID = bytes32(0);
+    bytes32 public constant BAL_ETH_POOL_ID = 0x5c6ee304399dbdb9c8ef030ab642b10820db8f56000200000000000000000014;
+    bytes32 public constant AURA_ETH_POOL_ID = bytes32(0);
+
+    uint256 private constant WETH_INDEX = 1;
 
     IDelegateRegistry public constant SNAPSHOT =
         IDelegateRegistry(0x469788fE6E9E9681C6ebF3bF78e7Fd26Fc015446);
@@ -187,24 +195,52 @@ contract MyStrategy is BaseStrategy {
     }
 
     function _harvest() internal override returns (TokenAmount[] memory harvested) {
-        uint256 rewardBalanceBefore = IERC20Upgradeable(AURABAL).balanceOf(address(this));
-
-        harvested = new TokenAmount[](1);
-        harvested[0].token = AURABAL;
-        // Get auraBal
+        // Claim auraBAL from locker
         LOCKER.getReward(address(this));
 
-        uint256 earnedReward =
-            IERC20Upgradeable(AURABAL).balanceOf(address(this)).sub(_beforeReward);
+        harvested = new TokenAmount[](1);
+        harvested[0].token = address(AURA);
 
-        // auraBal -> Bal -> Aura 
+        uint256 auraBalBalance = AURABAL.balanceOf(address(this));
 
+        // auraBAL -> BAL/ETH BPT -> WETH -> AURA
+        if (auraBalBalance > 0) {
+            // Common structs for swaps
+            IBalancerVault.FundManagement fundManagement = IBalancerVault.FundManagement({sender: address(this), recipient: address(this)});
+            IBalancerVault.SingleSwap;
 
-        _deposit(harvested[0].amount)
+            // Swap auraBal -> BAL/ETH BPT
+            singleSwap = IBalancerVault.SingleSwap({
+                poolId: AURABAL_BALETH_BPT_POOL_ID,
+                assetIn: IAsset(address(AURABAL)),
+                assetOut: IAsset(address(BALETH_BPT)),
+                amount: auraBalBalance,
+            });
+            uint256 balEthBptBalance = BALANCER_VAULT.swap(singleSwap, fundManagement, 0, type(uint256).max);
+            
+            // Withdraw BAL/ETH BPT -> WETH
+            IAsset[] memory assets = new IAsset[](2);
+            assets[0] = address(BAL);
+            assets[1] = address(WETH);
+            IBalancerVault.ExitPoolRequest exitPoolRequest = IBalancerVault.ExitPoolRequest({
+                assets,
+                userData: abi.encode(ExitKind.EXACT_BPT_IN_FOR_ONE_TOKEN_OUT, balEthBptBalance, WETH_INDEX),
+            });
+            BALANCER_VAULT.exitPool(BAL_ETH_POOL_ID, address(this), address(this), exitPoolRequest);
+
+            // Swap WETH -> AURA
+            uint256 wethBalance = WETH.balanceOf(address(this));
+            singleSwap = IBalancerVault.SingleSwap({
+                poolId: AURA_ETH_POOL_ID,
+                assetIn: IAsset(address(WETH)),
+                assetOut: IAsset(address(AURA)),
+                amount: wethBalance,
+            });
+            harvest[0].amount = BALANCER_VAULT.swap(singleSwap, fundManagement, 0, type(uint256).max);
+        }
 
         _reportToVault(harvested[0].amount);
-
-        return harvested
+        _deposit(harvested[0].amount)
     }
 
     /// @dev allows claiming of multiple bribes, badger is sent to tree
