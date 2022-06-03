@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.8.10;
+pragma solidity 0.6.12;
+pragma experimental ABIEncoderV2;
 
 interface IRewardDistributor {
     struct Claim {
@@ -25,7 +26,7 @@ interface IRewardDistributor {
 
     function DEFAULT_ADMIN_ROLE() external view returns (bytes32);
 
-    function claim(Claim[] _claims) external;
+    function claim(Claim[] calldata _claims) external;
 
     function claimed(bytes32, address) external view returns (uint256);
 
@@ -51,5 +52,5 @@ interface IRewardDistributor {
 
     function supportsInterface(bytes4 interfaceId) external view returns (bool);
 
-    function updateRewardsMetadata(Claim[] _distributions) external;
+    function updateRewardsMetadata(Claim[] calldata _distributions) external;
 }

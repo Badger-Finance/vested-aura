@@ -9,12 +9,12 @@ import {SafeERC20Upgradeable} from "@openzeppelin-contracts-upgradeable/token/ER
 import {BaseStrategy} from "@badger-finance/BaseStrategy.sol";
 
 import {IVault} from "../interfaces/badger/IVault.sol";
-import {IAsset} from "../interfaces/balancer/IAsset.sol"
-import {ExitKind, IBalancerVault} from "../interfaces/balancer/IBalancerVault.sol"
+import {IAsset} from "../interfaces/balancer/IAsset.sol";
+import {ExitKind, IBalancerVault} from "../interfaces/balancer/IBalancerVault.sol";
 import {IAuraLocker} from "../interfaces/aura/IAuraLocker.sol";
-import {IRewardDistributor} from "../interfaces/hiddehand/IRewardDistributor.sol";
+import {IRewardDistributor} from "../interfaces/hiddenhand/IRewardDistributor.sol";
 import {IDelegateRegistry} from "../interfaces/snapshot/IDelegateRegistry.sol";
-import {IBribesProcessor} from "../interfaces/snapshot/IBribesProcessor.sol";
+import {IBribesProcessor} from "../interfaces/badger/IBribesProcessor.sol";
 
 contract MyStrategy is BaseStrategy {
     using SafeERC20Upgradeable for IERC20Upgradeable;
@@ -31,9 +31,10 @@ contract MyStrategy is BaseStrategy {
 
     IAuraLocker public constant LOCKER = IAuraLocker(0xDA00527EDAabCe6F97D89aDb10395f719E5559b9);
 
-    IBalancerVault public constant BALANCER_VAULT = IBalancerVault(0xBA12222222228d8Ba445958a75a0704d566BF2C8)
+    IBalancerVault public constant BALANCER_VAULT = IBalancerVault(0xBA12222222228d8Ba445958a75a0704d566BF2C8);
 
     IERC20Upgradeable public constant WETH = IERC20Upgradeable(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
+    IERC20Upgradeable public constant BAL = IERC20Upgradeable(0xba100000625a3754423978a60c9317c58a424e3D);
     IERC20Upgradeable public constant AURA = IERC20Upgradeable(address(0));
     IERC20Upgradeable public constant AURABAL = IERC20Upgradeable(address(0));
     IERC20Upgradeable public constant BALETH_BPT = IERC20Upgradeable(0x5c6Ee304399DBdB9C8Ef030aB642B10820DB8F56);
@@ -44,18 +45,17 @@ contract MyStrategy is BaseStrategy {
 
     uint256 private constant WETH_INDEX = 1;
 
-    IDelegateRegistry public constant SNAPSHOT =
-        IDelegateRegistry(0x469788fE6E9E9681C6ebF3bF78e7Fd26Fc015446);
+    IDelegateRegistry public constant SNAPSHOT = IDelegateRegistry(0x469788fE6E9E9681C6ebF3bF78e7Fd26Fc015446);
 
-    bytes32 public constant DELEGATED_SPACE =
-        0x6376782e65746800000000000000000000000000000000000000000000000000;
+    bytes32 public constant DELEGATED_SPACE = 0x6376782e65746800000000000000000000000000000000000000000000000000;
 
     // The initial INITIAL_DELEGATE for the strategy // NOTE we can change it by using manualSetDelegate below
     address public constant INITIAL_DELEGATE = address(0x781E82D5D49042baB750efac91858cB65C6b0582);
 
     address public constant BRIBES_PROCESSOR = address(0xb2Bf1d48F2C2132913278672e6924efda3385de2);
 
-    
+    event RewardsCollected(address token, uint256 amount);
+
     /// @dev Initialize the Strategy with security settings as well as tokens
     /// @notice Proxies will set any non constant variable you declare as default value
     /// @dev add any extra changeable variable at end of initializer as shown
@@ -206,75 +206,83 @@ contract MyStrategy is BaseStrategy {
         // auraBAL -> BAL/ETH BPT -> WETH -> AURA
         if (auraBalBalance > 0) {
             // Common structs for swaps
-            IBalancerVault.FundManagement fundManagement = IBalancerVault.FundManagement({sender: address(this), recipient: address(this)});
-            IBalancerVault.SingleSwap;
+            IBalancerVault.SingleSwap memory singleSwap;
+            IBalancerVault.FundManagement memory fundManagement = IBalancerVault.FundManagement({
+                sender: address(this),
+                fromInternalBalance: false,
+                recipient: payable(address(this)),
+                toInternalBalance: false
+            });
 
             // Swap auraBal -> BAL/ETH BPT
             singleSwap = IBalancerVault.SingleSwap({
                 poolId: AURABAL_BALETH_BPT_POOL_ID,
+                kind: IBalancerVault.SwapKind.GIVEN_IN,
                 assetIn: IAsset(address(AURABAL)),
                 assetOut: IAsset(address(BALETH_BPT)),
                 amount: auraBalBalance,
+                userData: new bytes(0)
             });
             uint256 balEthBptBalance = BALANCER_VAULT.swap(singleSwap, fundManagement, 0, type(uint256).max);
-            
+
             // Withdraw BAL/ETH BPT -> WETH
             IAsset[] memory assets = new IAsset[](2);
-            assets[0] = address(BAL);
-            assets[1] = address(WETH);
-            IBalancerVault.ExitPoolRequest exitPoolRequest = IBalancerVault.ExitPoolRequest({
-                assets,
+            assets[0] = IAsset(address(BAL));
+            assets[1] = IAsset(address(WETH));
+            IBalancerVault.ExitPoolRequest memory exitPoolRequest = IBalancerVault.ExitPoolRequest({
+                assets: assets,
+                minAmountsOut: new uint256[](2),
                 userData: abi.encode(ExitKind.EXACT_BPT_IN_FOR_ONE_TOKEN_OUT, balEthBptBalance, WETH_INDEX),
+                toInternalBalance: false
             });
-            BALANCER_VAULT.exitPool(BAL_ETH_POOL_ID, address(this), address(this), exitPoolRequest);
+            BALANCER_VAULT.exitPool(BAL_ETH_POOL_ID, address(this), payable(address(this)), exitPoolRequest);
 
             // Swap WETH -> AURA
             uint256 wethBalance = WETH.balanceOf(address(this));
             singleSwap = IBalancerVault.SingleSwap({
                 poolId: AURA_ETH_POOL_ID,
+                kind: IBalancerVault.SwapKind.GIVEN_IN,
                 assetIn: IAsset(address(WETH)),
                 assetOut: IAsset(address(AURA)),
                 amount: wethBalance,
+                userData: new bytes(0)
             });
-            harvest[0].amount = BALANCER_VAULT.swap(singleSwap, fundManagement, 0, type(uint256).max);
+            harvested[0].amount = BALANCER_VAULT.swap(singleSwap, fundManagement, 0, type(uint256).max);
         }
 
         _reportToVault(harvested[0].amount);
-        _deposit(harvested[0].amount)
+        _deposit(harvested[0].amount);
     }
 
     /// @dev allows claiming of multiple bribes, badger is sent to tree
-    /// @notice Hidden hand only allows to claim all tokens at once, not individually 
+    /// @notice Hidden hand only allows to claim all tokens at once, not individually
     /// @notice allows claiming any token as it uses the difference in balance
-    function claimBribesFromHiddenHand(
-        IRewardDistributor hiddenHandDistributor,
-        Claim[] calldata _claims
-    ) external {
+    function claimBribesFromHiddenHand(IRewardDistributor hiddenHandDistributor, IRewardDistributor.Claim[] calldata _claims) external {
         uint256[] memory beforeBalance = new uint256[](_claims.length);
         uint256 beforeVaultBalance = _getBalance();
         uint256 beforePricePerFullShare = _getPricePerFullShare();
 
         // Track token balances before bribes claim
-        for(uint i = 0; i < _claims.length; i++){
-            address token = hiddenHandDistributor.rewards[_claims[i].identifier].token;
+        for (uint256 i = 0; i < _claims.length; i++) {
+            (address token, , , ) = hiddenHandDistributor.rewards(_claims[i].identifier);
             beforeBalance[i] = IERC20Upgradeable(token).balanceOf(address(this));
         }
         // Claim bribes
         hiddenHandDistributor.claim(_claims);
 
-         bool nonZeroDiff; // Cached value but also to check if we need to notifyProcessor
+        bool nonZeroDiff; // Cached value but also to check if we need to notifyProcessor
         // Ultimately it's proof of non-zero which is good enough
 
-        for(uint i = 0; i < _claims.length; i++) {
-            address token = hiddenHandDistributor.rewards[_claims[i].identifier].token;
+        for (uint256 i = 0; i < _claims.length; i++) {
+            (address token, , , ) = hiddenHandDistributor.rewards(_claims[i].identifier);
             uint256 difference = IERC20Upgradeable(token).balanceOf(address(this)).sub(beforeBalance[i]);
-            if(difference > 0){
+            if (difference > 0) {
                 nonZeroDiff = true;
                 _handleRewardTransfer(token, difference);
             }
         }
-        
-        if(nonZeroDiff) {
+
+        if (nonZeroDiff) {
             _notifyBribesProcessor();
         }
 
@@ -333,10 +341,10 @@ contract MyStrategy is BaseStrategy {
     /// *** Handling of rewards ***
     function _handleRewardTransfer(address token, uint256 amount) internal {
         // NOTE: BADGER is emitted through the tree
-        if (token == BADGER){
+        if (token == BADGER) {
             _sendBadgerToTree(amount);
         } else {
-        // NOTE: All other tokens are sent to bribes processor
+            // NOTE: All other tokens are sent to bribes processor
             _sendTokenToBribesProcessor(token, amount);
         }
     }
@@ -357,5 +365,4 @@ contract MyStrategy is BaseStrategy {
         IERC20Upgradeable(BADGER).safeTransfer(BADGER_TREE, amount);
         _processExtraToken(address(BADGER), amount);
     }
-
 }
