@@ -70,6 +70,9 @@ contract MyStrategy is BaseStrategy {
         // Permissions for Locker
         AURA.safeApprove(address(LOCKER), type(uint256).max);
 
+        AURABAL.safeApprove(address(BALANCER_VAULT), type(uint256).max);
+        WETH.safeApprove(address(BALANCER_VAULT), type(uint256).max);
+
         // Delegate voting to INITIAL_DELEGATE
         SNAPSHOT.setDelegate(DELEGATED_SPACE, INITIAL_DELEGATE);
         autoCompoundRatio = MAX_BPS;
@@ -97,13 +100,6 @@ contract MyStrategy is BaseStrategy {
     }
 
     /// ===== View Functions =====
-
-    function getBoostPayment() public view returns (uint256) {
-        // uint256 maximumBoostPayment = LOCKER.maximumBoostPayment();
-        // require(maximumBoostPayment <= 1500, "over max payment"); //max 15%
-        // return maximumBoostPayment;
-        return 0;
-    }
 
     /// @dev Return the name of the strategy
     function getName() external pure override returns (string memory) {
