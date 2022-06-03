@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.10;
 
-import { IAsset } from "./IAsset.sol";
+import {IAsset} from "./IAsset.sol";
 
-enum ExitKind { 
-    EXACT_BPT_IN_FOR_ONE_TOKEN_OUT, 
-    EXACT_BPT_IN_FOR_TOKENS_OUT, 
-    BPT_IN_FOR_EXACT_TOKENS_OUT 
+enum ExitKind {
+    EXACT_BPT_IN_FOR_ONE_TOKEN_OUT,
+    EXACT_BPT_IN_FOR_TOKENS_OUT,
+    BPT_IN_FOR_EXACT_TOKENS_OUT
 }
 
 interface IBalancerVault {
@@ -152,7 +152,10 @@ interface IBalancerVault {
     //
     // Finally, Internal Balance can be used when either sending or receiving tokens.
 
-    enum SwapKind { GIVEN_IN, GIVEN_OUT }
+    enum SwapKind {
+        GIVEN_IN,
+        GIVEN_OUT
+    }
 
     /**
      * @dev Performs a swap with a single Pool.
@@ -252,13 +255,7 @@ interface IBalancerVault {
     /**
      * @dev Emitted for each individual swap performed by `swap` or `batchSwap`.
      */
-    event Swap(
-        bytes32 indexed poolId,
-        IERC20 indexed tokenIn,
-        IERC20 indexed tokenOut,
-        uint256 amountIn,
-        uint256 amountOut
-    );
+    event Swap(bytes32 indexed poolId, IERC20 indexed tokenIn, IERC20 indexed tokenOut, uint256 amountIn, uint256 amountOut);
 
     /**
      * @dev All tokens in a swap are either sent from the `sender` account to the Vault, or from the Vault to the

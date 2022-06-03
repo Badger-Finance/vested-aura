@@ -16,10 +16,7 @@ interface IAuraLocker {
     function balanceOf(address _user) external view returns (uint256 amount);
 
     // total token balance of an account, including unlocked but not withdrawn tokens
-    function lockedBalanceOf(address _user)
-        external
-        view
-        returns (uint256 amount);
+    function lockedBalanceOf(address _user) external view returns (uint256 amount);
 
     // Withdraw/relock all currently locked tokens where the unlock time has passed
     function processExpiredLocks(
