@@ -123,7 +123,8 @@ contract MyStrategy is BaseStrategy {
     /// @dev Return the balance (in want) that the strategy has invested somewhere
     function balanceOfPool() public view override returns (uint256) {
         // Return the balance in locker
-        return LOCKER.lockedBalanceOf(address(this));
+        IAuraLocker.Balances memory balances = LOCKER.balances(address(this));
+        return balances.locked;
     }
 
     /// @dev Return the balance of rewards that the strategy has accrued
@@ -151,8 +152,8 @@ contract MyStrategy is BaseStrategy {
 
     /// @dev Deposit `_amount` of want, investing it to earn yield
     function _deposit(uint256 _amount) internal override {
-        // Lock tokens for 16 weeks, send credit to strat, always use max boost cause why not?
-        LOCKER.lock(address(this), _amount, getBoostPayment());
+        // Lock tokens for 16 weeks, send credit to strat
+        LOCKER.lock(address(this), _amount);
     }
 
     /// @dev utility function to withdraw all AURA that we can from the lock
@@ -164,7 +165,7 @@ contract MyStrategy is BaseStrategy {
     function _withdrawAll() internal override {
         //NOTE: This probably will always fail unless we have all tokens expired
         require(
-            LOCKER.lockedBalanceOf(address(this)) == 0 && LOCKER.balanceOf(address(this)) == 0,
+            balanceOfPool() == 0 && LOCKER.balanceOf(address(this)) == 0,
             "You have to wait for unlock or have to manually rebalance out of it"
         );
 
@@ -202,7 +203,6 @@ contract MyStrategy is BaseStrategy {
         harvested[0].token = address(AURA);
 
         uint256 auraBalBalance = AURABAL.balanceOf(address(this));
-
         // auraBAL -> BAL/ETH BPT -> WETH -> AURA
         if (auraBalBalance > 0) {
             // Common structs for swaps

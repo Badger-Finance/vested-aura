@@ -8,13 +8,14 @@ interface IAuraLocker {
         uint256 amount;
     }
 
+    struct Balances {
+        uint112 locked;
+        uint32 nextUnlockIndex;
+    }
+
     function maximumBoostPayment() external view returns (uint256);
 
-    function lock(
-        address _account,
-        uint256 _amount,
-        uint256 _spendRatio
-    ) external;
+    function lock(address _account, uint256 _amount) external;
 
     function getReward(address _account) external;
 
@@ -25,8 +26,7 @@ interface IAuraLocker {
     //BOOSTED balance of an account which only includes properly locked tokens as of the most recent eligible epoch
     function balanceOf(address _user) external view returns (uint256 amount);
 
-    // total token balance of an account, including unlocked but not withdrawn tokens
-    function lockedBalanceOf(address _user) external view returns (uint256 amount);
+    function balances(address _user) external view returns (Balances memory bals);
 
     // Withdraw/relock all currently locked tokens where the unlock time has passed
     function processExpiredLocks(
