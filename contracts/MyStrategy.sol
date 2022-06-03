@@ -9,6 +9,7 @@ import {SafeERC20Upgradeable} from "@openzeppelin-contracts-upgradeable/token/ER
 import {BaseStrategy} from "@badger-finance/BaseStrategy.sol";
 
 import {IVault} from "../interfaces/badger/IVault.sol";
+import {IBalancerVault} from "../interfaces/balancer/IBalancerVault.sol"
 import {IAuraLocker} from "../interfaces/aura/IAuraLocker.sol";
 import {IRewardDistributor} from "../interfaces/hiddehand/IRewardDistributor.sol";
 import {IDelegateRegistry} from "../interfaces/snapshot/IDelegateRegistry.sol";
@@ -29,11 +30,11 @@ contract MyStrategy is BaseStrategy {
 
     IAuraLocker public constant LOCKER = IAuraLocker(0xDA00527EDAabCe6F97D89aDb10395f719E5559b9);
 
+    IBalancerVault public constant BALANCER_VAULT(0xBA12222222228d8Ba445958a75a0704d566BF2C8)
+
     IERC20Upgradeable public constant AURA = IERC20Upgradeable(0xc5A9848b9d145965d821AaeC8fA32aaEE026492d);
 
     IERC20Upgradeable public constant AURABAL = IERC20Upgradeable(0xDA0053F0bEfCbcaC208A3f867BB243716734D809);
-    //TODO: Make aurabal vault
-    IVault public constant AURABAL_VAULT = IVault();
 
     IDelegateRegistry public constant SNAPSHOT =
         IDelegateRegistry(0x469788fE6E9E9681C6ebF3bF78e7Fd26Fc015446);
@@ -45,6 +46,7 @@ contract MyStrategy is BaseStrategy {
     address public constant INITIAL_DELEGATE = address(0x781E82D5D49042baB750efac91858cB65C6b0582);
 
     address public constant BRIBES_PROCESSOR = address(0xb2Bf1d48F2C2132913278672e6924efda3385de2);
+
     
     /// @dev Initialize the Strategy with security settings as well as tokens
     /// @notice Proxies will set any non constant variable you declare as default value
@@ -59,7 +61,6 @@ contract MyStrategy is BaseStrategy {
         /// @dev do one off approvals here
         // Permissions for Locker
         AURA.safeApprove(address(LOCKER), type(uint256).max);
-        AURABAL.safeApprove(address(AURABAL_VAULT), type(uint256).max);
 
         // Delegate voting to INITIAL_DELEGATE
         SNAPSHOT.setDelegate(DELEGATED_SPACE, INITIAL_DELEGATE);
@@ -190,26 +191,20 @@ contract MyStrategy is BaseStrategy {
 
         harvested = new TokenAmount[](1);
         harvested[0].token = AURABAL;
-        harvested[0].amount = 0;
         // Get auraBal
         LOCKER.getReward(address(this));
 
         uint256 earnedReward =
             IERC20Upgradeable(AURABAL).balanceOf(address(this)).sub(_beforeReward);
 
-        // Send rest of earned to tree //We send all rest to avoid dust and avoid protecting the token
-        // We take difference of vault token to emit the event in shares rather than underlying
-        uint256 auraBALInitialBalance = AURABAL_VAULT.balanceOf(BADGER_TREE);
-        uint256 auraBalToTree = IERC20Upgradeable(AURABAL).balanceOf(address(this));
+        // auraBal -> Bal -> Aura 
 
-        // Deposit into auraBal vault and send to tree
-        AURABAL_VAULT.depositFor(BADGER_TREE, auraBalToTree);
-        uint256 auraBALAfterBalance = AURABAL_VAULT.balanceOf(BADGER_TREE);
 
-        // Emits vault token to tree and handles fees
-        _processExtraToken(address(AURABAL_VAULT), auraBALAfterBalance.sub(auraBALInitialBalance));
+        _deposit(harvested[0].amount)
 
         _reportToVault(harvested[0].amount);
+
+        return harvested
     }
 
     /// @dev allows claiming of multiple bribes, badger is sent to tree

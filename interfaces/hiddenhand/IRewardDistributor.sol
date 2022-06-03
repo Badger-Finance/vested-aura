@@ -17,7 +17,7 @@ interface IRewardDistributor {
 
     function BRIBE_VAULT() view external returns (address);
     function DEFAULT_ADMIN_ROLE() view external returns (bytes32);
-    function claim(Claim[] memory _claims) external;
+    function claim(Claim[]  _claims) external;
     function claimed(bytes32, address) view external returns (uint256);
     function getRoleAdmin(bytes32 role) view external returns (bytes32);
     function grantRole(bytes32 role, address account) external;
@@ -26,5 +26,5 @@ interface IRewardDistributor {
     function revokeRole(bytes32 role, address account) external;
     function rewards(bytes32) view external returns (address token, bytes32 merkleRoot, bytes32 proof, uint256 updateCount);
     function supportsInterface(bytes4 interfaceId) view external returns (bool);
-    function updateRewardsMetadata(Claim[] memory _distributions) external;
+    function updateRewardsMetadata(Claim[] _distributions) external;
 }
