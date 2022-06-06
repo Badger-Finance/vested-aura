@@ -43,12 +43,10 @@ contract MyStrategy is BaseStrategy {
     bytes32 public constant BAL_ETH_POOL_ID = 0x5c6ee304399dbdb9c8ef030ab642b10820db8f56000200000000000000000014;
     bytes32 public constant AURA_ETH_POOL_ID = bytes32(0);
 
-    uint256 private constant WETH_INDEX = 1;
+    uint256 private constant BPT_WETH_INDEX = 1;
 
     IDelegateRegistry public constant SNAPSHOT = IDelegateRegistry(0x469788fE6E9E9681C6ebF3bF78e7Fd26Fc015446);
-
-    bytes32 public constant DELEGATED_SPACE = 0x6376782e65746800000000000000000000000000000000000000000000000000;
-
+    bytes32 public constant DELEGATED_SPACE = bytes32(0);
     // The initial INITIAL_DELEGATE for the strategy // NOTE we can change it by using manualSetDelegate below
     address public constant INITIAL_DELEGATE = address(0x781E82D5D49042baB750efac91858cB65C6b0582);
 
@@ -228,7 +226,7 @@ contract MyStrategy is BaseStrategy {
             IBalancerVault.ExitPoolRequest memory exitPoolRequest = IBalancerVault.ExitPoolRequest({
                 assets: assets,
                 minAmountsOut: new uint256[](2),
-                userData: abi.encode(ExitKind.EXACT_BPT_IN_FOR_ONE_TOKEN_OUT, balEthBptBalance, WETH_INDEX),
+                userData: abi.encode(ExitKind.EXACT_BPT_IN_FOR_ONE_TOKEN_OUT, balEthBptBalance, BPT_WETH_INDEX),
                 toInternalBalance: false
             });
             BALANCER_VAULT.exitPool(BAL_ETH_POOL_ID, address(this), payable(address(this)), exitPoolRequest);
