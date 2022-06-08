@@ -35,13 +35,7 @@ class StrategyResolver(StrategyCoreResolver):
         self.manager.printCompare(before, after)
         self.confirm_harvest_state(before, after, tx)
 
-        # No autocompounding
-        # super().confirm_harvest(before, after, tx)
-
-        # NOTE: Harvesting increases this while management fee decreases this
-        # assert after.get("sett.getPricePerFullShare") <= before.get(
-        #     "sett.getPricePerFullShare"
-        # )
+        super().confirm_harvest(before, after, tx)
 
         assert len(tx.events["Harvested"]) == 1
         event = tx.events["Harvested"][0]

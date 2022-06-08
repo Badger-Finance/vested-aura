@@ -23,6 +23,12 @@ interface IAuraLocker {
 
     function claimableRewards(address _account) external view returns (EarnedData[] memory userRewards);
 
+    function rewardTokens(uint256 _index) external view returns (address token);
+
+    function rewardPerToken(address _rewardsToken) external view returns (uint256);
+
+    function lastTimeRewardApplicable(address _rewardsToken) external view returns (uint256);
+
     //BOOSTED balance of an account which only includes properly locked tokens as of the most recent eligible epoch
     function balanceOf(address _user) external view returns (uint256 amount);
 

@@ -30,7 +30,7 @@ contract MyStrategy is BaseStrategy {
     address public constant BADGER_TREE = address(0x660802Fc641b154aBA66a62137e71f331B6d787A);
 
     // TODO: Mainnet
-    IAuraLocker public constant LOCKER = IAuraLocker(address(0x117f8Ec16C00C9F321129651abBc4A38caD350D2));
+    IAuraLocker public constant LOCKER = IAuraLocker(0x117f8Ec16C00C9F321129651abBc4A38caD350D2);
 
     // TODO: Mainnet
     IERC20Upgradeable public constant BAL = IERC20Upgradeable(0xcb355677E36f390Ccc4a5d4bEADFbF1Eb2071c81);

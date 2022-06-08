@@ -188,6 +188,11 @@ def withdrawalFee(deployed):
 
 
 @pytest.fixture
+def auraStakingProxy():
+    return interface.IAuraStakingProxy("0x0C602883797532a7218161f0b0ef3D868786F254")
+
+
+@pytest.fixture
 def setup_share_math(deployer, vault, want, governance):
 
     depositAmount = int(want.balanceOf(deployer) * 0.5)
@@ -226,6 +231,12 @@ def setup_strat(governance, deployer, vault, strategy, want):
 
     chain.sleep(10000 * 13)  # Mine so we get some interest
     return strategy
+
+
+@pytest.fixture(autouse=True)
+def distribute_auraBal(auraStakingProxy, keeper):
+    auraStakingProxy.setKeeper(keeper, {"from": auraStakingProxy.owner()})
+    auraStakingProxy.distribute(1, {'from': keeper})
 
 
 ## Forces reset before each test
