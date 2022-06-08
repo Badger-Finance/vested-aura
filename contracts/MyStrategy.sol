@@ -26,8 +26,8 @@ contract MyStrategy is BaseStrategy {
 
     IBalancerVault public constant BALANCER_VAULT = IBalancerVault(0xBA12222222228d8Ba445958a75a0704d566BF2C8);
 
-    address public constant BADGER = address(0x3472A5A71965499acd81997a54BBA8D852C6E53d);
-    address public constant BADGER_TREE = address(0x660802Fc641b154aBA66a62137e71f331B6d787A);
+    address public constant BADGER = 0x3472A5A71965499acd81997a54BBA8D852C6E53d;
+    address public constant BADGER_TREE = 0x660802Fc641b154aBA66a62137e71f331B6d787A;
 
     // TODO: Mainnet
     IAuraLocker public constant LOCKER = IAuraLocker(0x117f8Ec16C00C9F321129651abBc4A38caD350D2);
