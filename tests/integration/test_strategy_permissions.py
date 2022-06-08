@@ -275,6 +275,14 @@ def test_check_manual_permissions(
         strategy.manualProcessExpiredLocks({"from": rando})
     with brownie.reverts():
         strategy.manualSendAuraToVault({"from": rando})
+    with brownie.reverts():
+        strategy.sweepRewardToken(want, {"from": rando})
+    with brownie.reverts():
+        strategy.sweepRewards([want], {"from": rando})
+    with brownie.reverts():
+        strategy.setBribesProcessor(rando, {"from": rando})
+    with brownie.reverts():
+        strategy.claimBribesFromHiddenHand(rando, [], {"from": rando})
 
     ## Strategist is bounced for manual ops
     with brownie.reverts():
@@ -283,3 +291,5 @@ def test_check_manual_permissions(
         strategy.manualProcessExpiredLocks({"from": strategist})
     with brownie.reverts():
         strategy.manualSendAuraToVault({"from": strategist})
+    with brownie.reverts():
+        strategy.setBribesProcessor(rando, {"from": strategist})

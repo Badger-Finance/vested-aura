@@ -4,6 +4,7 @@ pragma solidity 0.6.12;
 pragma experimental ABIEncoderV2;
 
 import {IERC20Upgradeable} from "@openzeppelin-contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
+import {ReentrancyGuardUpgradeable} from "@openzeppelin-contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import {SafeMathUpgradeable} from "@openzeppelin-contracts-upgradeable/math/SafeMathUpgradeable.sol";
 import {SafeERC20Upgradeable} from "@openzeppelin-contracts-upgradeable/token/ERC20/SafeERC20Upgradeable.sol";
 import {BaseStrategy} from "@badger-finance/BaseStrategy.sol";
@@ -15,7 +16,7 @@ import {IAuraLocker} from "../interfaces/aura/IAuraLocker.sol";
 import {IRewardDistributor} from "../interfaces/hiddenhand/IRewardDistributor.sol";
 import {IBribesProcessor} from "../interfaces/badger/IBribesProcessor.sol";
 
-contract MyStrategy is BaseStrategy {
+contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
     using SafeERC20Upgradeable for IERC20Upgradeable;
     using SafeMathUpgradeable for uint256;
 
@@ -271,18 +272,20 @@ contract MyStrategy is BaseStrategy {
     /// @dev allows claiming of multiple bribes, badger is sent to tree
     /// @notice Hidden hand only allows to claim all tokens at once, not individually
     /// @notice allows claiming any token as it uses the difference in balance
-    function claimBribesFromHiddenHand(IRewardDistributor hiddenHandDistributor, IRewardDistributor.Claim[] calldata _claims) external {
+    function claimBribesFromHiddenHand(IRewardDistributor hiddenHandDistributor, IRewardDistributor.Claim[] calldata _claims) external nonReentrant {
+        _onlyGovernanceOrStrategist();
         require(address(bribesProcessor) != address(0), "Bribes processor not set");
 
-        uint256[] memory beforeBalance = new uint256[](_claims.length);
         uint256 beforeVaultBalance = _getBalance();
         uint256 beforePricePerFullShare = _getPricePerFullShare();
 
         // Track token balances before bribes claim
+        uint256[] memory beforeBalance = new uint256[](_claims.length);
         for (uint256 i = 0; i < _claims.length; i++) {
             (address token, , , ) = hiddenHandDistributor.rewards(_claims[i].identifier);
             beforeBalance[i] = IERC20Upgradeable(token).balanceOf(address(this));
         }
+
         // Claim bribes
         hiddenHandDistributor.claim(_claims);
 
