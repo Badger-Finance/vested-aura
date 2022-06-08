@@ -50,7 +50,7 @@ def main():
     proxyAdmin = registry.get("proxyAdminTimelock")
 
     name = "Gravitationally Bound AURA"  ## In vaults 1.5 it's the full name
-    symbol = "gravAURA"  ## e.g The full symbol (remember to add symbol from want)
+    symbol = "graviAURA"  ## e.g The full symbol (remember to add symbol from want)
 
     assert strategist != AddressZero
     assert guardian != AddressZero

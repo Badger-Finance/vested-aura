@@ -94,6 +94,26 @@ contract MyStrategy is BaseStrategy {
         bribesProcessor = newBribesProcessor;
     }
 
+    /// @dev Function to move rewards that are not protected
+    /// @notice Only not protected, moves the whole amount using _handleRewardTransfer
+    /// @notice because token paths are harcoded, this function is safe to be called by anyone
+    /// @notice Will not notify the BRIBES_PROCESSOR as this could be triggered outside bribes
+    function sweepRewardToken(address token) public nonReentrant {
+        _onlyGovernanceOrStrategist();
+        _onlyNotProtectedTokens(token);
+
+        uint256 toSend = IERC20Upgradeable(token).balanceOf(address(this));
+        _handleRewardTransfer(token, toSend);
+    }
+
+    /// @dev Bulk function for sweepRewardToken
+    function sweepRewards(address[] calldata tokens) external {
+        uint256 length = tokens.length;
+        for(uint i = 0; i < length; i++){
+            sweepRewardToken(tokens[i]);
+        }
+    }
+
    /// ===== View Functions =====
 
     /// @dev Return the name of the strategy
@@ -324,6 +344,17 @@ contract MyStrategy is BaseStrategy {
         _onlyGovernance();
         uint256 auraAmount = balanceOfWant();
         _transferToVault(auraAmount);
+    }
+
+    function checkUpkeep(bytes calldata checkData) external view returns (bool upkeepNeeded, bytes memory performData) {
+        // We need to unlock funds if the lockedBalance (locked + unlocked) is greater than the balance (actively locked for this epoch)
+        upkeepNeeded = balanceOfPool() > LOCKER.balanceOf(address(this));
+    }
+
+    /// @dev Function for ChainLink Keepers to automatically process expired locks
+    function performUpkeep(bytes calldata performData) external {
+        // Works like this because it reverts if lock is not expired
+        LOCKER.processExpiredLocks(false);
     }
 
     function _getBalance() internal returns (uint256) {
