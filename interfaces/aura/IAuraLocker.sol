@@ -37,4 +37,6 @@ interface IAuraLocker {
 
     // Withdraw/relock all currently locked tokens where the unlock time has passed
     function processExpiredLocks(bool _relock) external;
+
+    function delegate(address newDelegatee) external;
 }

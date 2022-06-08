@@ -13,23 +13,22 @@ import {IAsset} from "../interfaces/balancer/IAsset.sol";
 import {ExitKind, IBalancerVault} from "../interfaces/balancer/IBalancerVault.sol";
 import {IAuraLocker} from "../interfaces/aura/IAuraLocker.sol";
 import {IRewardDistributor} from "../interfaces/hiddenhand/IRewardDistributor.sol";
-import {IDelegateRegistry} from "../interfaces/snapshot/IDelegateRegistry.sol";
 import {IBribesProcessor} from "../interfaces/badger/IBribesProcessor.sol";
 
 contract MyStrategy is BaseStrategy {
     using SafeERC20Upgradeable for IERC20Upgradeable;
     using SafeMathUpgradeable for uint256;
 
-    bool public withdrawalSafetyCheck = false;
+    bool public withdrawalSafetyCheck;
 
     // If nothing is unlocked, processExpiredLocks will revert
-    bool public processLocksOnReinvest = false;
+    bool public processLocksOnReinvest;
 
     address public constant BADGER_TREE = address(0x660802Fc641b154aBA66a62137e71f331B6d787A);
 
     address public constant BADGER = address(0x3472A5A71965499acd81997a54BBA8D852C6E53d);
 
-    IAuraLocker public constant LOCKER = IAuraLocker(0xDA00527EDAabCe6F97D89aDb10395f719E5559b9);
+    IAuraLocker public constant LOCKER = IAuraLocker(address(0));
 
     IBalancerVault public constant BALANCER_VAULT = IBalancerVault(0xBA12222222228d8Ba445958a75a0704d566BF2C8);
 
@@ -45,8 +44,6 @@ contract MyStrategy is BaseStrategy {
 
     uint256 private constant BPT_WETH_INDEX = 1;
 
-    IDelegateRegistry public constant SNAPSHOT = IDelegateRegistry(0x469788fE6E9E9681C6ebF3bF78e7Fd26Fc015446);
-    bytes32 public constant DELEGATED_SPACE = bytes32(0);
     // The initial INITIAL_DELEGATE for the strategy // NOTE we can change it by using manualSetDelegate below
     address public constant INITIAL_DELEGATE = address(0x781E82D5D49042baB750efac91858cB65C6b0582);
 
@@ -72,8 +69,7 @@ contract MyStrategy is BaseStrategy {
         WETH.safeApprove(address(BALANCER_VAULT), type(uint256).max);
 
         // Delegate voting to INITIAL_DELEGATE
-        SNAPSHOT.setDelegate(DELEGATED_SPACE, INITIAL_DELEGATE);
-        autoCompoundRatio = MAX_BPS;
+        LOCKER.delegate(INITIAL_DELEGATE);
     }
 
     /// ===== Extra Functions =====
@@ -82,7 +78,7 @@ contract MyStrategy is BaseStrategy {
     function manualSetDelegate(address delegate) external {
         _onlyGovernance();
         // Set delegate is enough as it will clear previous delegate automatically
-        SNAPSHOT.setDelegate(DELEGATED_SPACE, delegate);
+        LOCKER.delegate(delegate);
     }
 
     ///@dev Should we check if the amount requested is more than what we can return on withdrawal?
@@ -248,6 +244,7 @@ contract MyStrategy is BaseStrategy {
         _deposit(harvested[0].amount);
     }
 
+    // TODO: Check this
     /// @dev allows claiming of multiple bribes, badger is sent to tree
     /// @notice Hidden hand only allows to claim all tokens at once, not individually
     /// @notice allows claiming any token as it uses the difference in balance
