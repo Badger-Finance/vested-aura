@@ -58,8 +58,8 @@ def test_after_deposit_locker_has_more_funds(
     """
     We have to check that the Locker get's more funds after a deposit
     """
-
-    intitial_in_locker = locker.lockedBalanceOf(strategy) + locker.balanceOf(strategy)
+    locked, _ = locker.balances(strategy)
+    intitial_in_locker = locked + locker.balanceOf(strategy)
 
     # Setup
     startingBalance = want.balanceOf(deployer)
@@ -81,13 +81,15 @@ def test_after_deposit_locker_has_more_funds(
     chain.sleep(10000 * 13)  # Mine so we get some interest
 
     ## TEST: Did the proxy get more want?
+    locked, _ = locker.balances(strategy)
+    # TODO: Shouldn't this be just locker.balanceOf(strategy)?
     assert (
-        locker.lockedBalanceOf(strategy) + locker.balanceOf(strategy)
+        locked + locker.balanceOf(strategy)
         > intitial_in_locker
     )
 
 
-def test_delegation_was_correct(deployer, vault, strategy, want, governance):
+def test_delegation_was_correct(deployer, vault, strategy, want, governance, randomUser, locker):
     # Setup
     startingBalance = want.balanceOf(deployer)
     depositAmount = startingBalance // 2
@@ -107,9 +109,5 @@ def test_delegation_was_correct(deployer, vault, strategy, want, governance):
 
     chain.sleep(10000 * 13)  # Mine so we get some interest
 
-    delegate = strategy.INITIAL_DELEGATE()
-    voting_snapshot = interface.IVotingSnapshot(strategy.VOTING_SNAPSHOT())
-    assert voting_snapshot.voteDelegateByAccount(strategy) == delegate
-
-    pool = "0xDf9181Fe9a39Ec5D845D7351309C2D408a0dA4d6"
-    voting_snapshot.vote(strategy, pool, 1, {"from": delegate})
+    strategy.manualSetDelegate(randomUser, {"from": governance})
+    assert locker.delegates(strategy) == randomUser

@@ -39,4 +39,6 @@ interface IAuraLocker {
     function processExpiredLocks(bool _relock) external;
 
     function delegate(address newDelegatee) external;
+
+    function delegates(address account) external view returns (address);
 }

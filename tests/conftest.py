@@ -168,7 +168,7 @@ def tokens(deployed):
 
 @pytest.fixture
 def locker(strategy):
-    return interface.IVlOxd(strategy.LOCKER())
+    return interface.IAuraLocker(strategy.LOCKER())
 
 
 ### Fees ###

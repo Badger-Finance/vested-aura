@@ -24,30 +24,30 @@ contract MyStrategy is BaseStrategy {
     // If nothing is unlocked, processExpiredLocks will revert
     bool public processLocksOnReinvest;
 
-    address public constant BADGER_TREE = address(0x660802Fc641b154aBA66a62137e71f331B6d787A);
-
-    address public constant BADGER = address(0x3472A5A71965499acd81997a54BBA8D852C6E53d);
-
-    IAuraLocker public constant LOCKER = IAuraLocker(address(0));
-
     IBalancerVault public constant BALANCER_VAULT = IBalancerVault(0xBA12222222228d8Ba445958a75a0704d566BF2C8);
 
-    IERC20Upgradeable public constant WETH = IERC20Upgradeable(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
-    IERC20Upgradeable public constant BAL = IERC20Upgradeable(0xba100000625a3754423978a60c9317c58a424e3D);
-    IERC20Upgradeable public constant AURA = IERC20Upgradeable(address(0));
-    IERC20Upgradeable public constant AURABAL = IERC20Upgradeable(address(0));
-    IERC20Upgradeable public constant BALETH_BPT = IERC20Upgradeable(0x5c6Ee304399DBdB9C8Ef030aB642B10820DB8F56);
+    address public constant BADGER = address(0x3472A5A71965499acd81997a54BBA8D852C6E53d);
+    address public constant BADGER_TREE = address(0x660802Fc641b154aBA66a62137e71f331B6d787A);
 
-    bytes32 public constant AURABAL_BALETH_BPT_POOL_ID = bytes32(0);
-    bytes32 public constant BAL_ETH_POOL_ID = 0x5c6ee304399dbdb9c8ef030ab642b10820db8f56000200000000000000000014;
-    bytes32 public constant AURA_ETH_POOL_ID = bytes32(0);
+    // TODO: Mainnet
+    IAuraLocker public constant LOCKER = IAuraLocker(address(0x117f8Ec16C00C9F321129651abBc4A38caD350D2));
+
+    // TODO: Mainnet
+    IERC20Upgradeable public constant BAL = IERC20Upgradeable(0xcb355677E36f390Ccc4a5d4bEADFbF1Eb2071c81);
+    IERC20Upgradeable public constant WETH = IERC20Upgradeable(0xdFCeA9088c8A88A76FF74892C1457C17dfeef9C1);
+    IERC20Upgradeable public constant AURA = IERC20Upgradeable(0x16fe78B330B8C628DEA89344DB003a86B54Bb69d);
+    IERC20Upgradeable public constant AURABAL = IERC20Upgradeable(0x11B2655B2F64a70888BcAF4AD340992AB6fc8cfa);
+    IERC20Upgradeable public constant BALETH_BPT = IERC20Upgradeable(0xDC2EcFDf2688f92c85064bE0b929693ACC6dBcA6);
+
+    // TODO: Mainnet
+    bytes32 public constant AURABAL_BALETH_BPT_POOL_ID = 0xd97b6a43ee27267950aa55e9e38cc0ee4cf211c600020000000000000000092e;
+    bytes32 public constant BAL_ETH_POOL_ID = 0xdc2ecfdf2688f92c85064be0b929693acc6dbca6000200000000000000000701;
+    bytes32 public constant AURA_ETH_POOL_ID = 0x5e43529b3135181497b94869b7115aa318d56b94000200000000000000000930;
 
     uint256 private constant BPT_WETH_INDEX = 1;
 
-    // The initial INITIAL_DELEGATE for the strategy // NOTE we can change it by using manualSetDelegate below
-    address public constant INITIAL_DELEGATE = address(0x781E82D5D49042baB750efac91858cB65C6b0582);
-
-    address public constant BRIBES_PROCESSOR = address(0xb2Bf1d48F2C2132913278672e6924efda3385de2);
+    // TODO: Mainnet
+    address public constant BRIBES_PROCESSOR = address(0);
 
     event RewardsCollected(address token, uint256 amount);
 
@@ -67,9 +67,6 @@ contract MyStrategy is BaseStrategy {
 
         AURABAL.safeApprove(address(BALANCER_VAULT), type(uint256).max);
         WETH.safeApprove(address(BALANCER_VAULT), type(uint256).max);
-
-        // Delegate voting to INITIAL_DELEGATE
-        LOCKER.delegate(INITIAL_DELEGATE);
     }
 
     /// ===== Extra Functions =====
@@ -241,7 +238,9 @@ contract MyStrategy is BaseStrategy {
         }
 
         _reportToVault(harvested[0].amount);
-        _deposit(harvested[0].amount);
+        if (harvested[0].amount > 0) {
+            _deposit(harvested[0].amount);
+        }
     }
 
     // TODO: Check this

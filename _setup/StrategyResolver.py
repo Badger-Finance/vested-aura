@@ -24,9 +24,9 @@ class StrategyResolver(StrategyCoreResolver):
         super().add_balances_snap(calls, entities)
         strategy = self.manager.strategy
 
-        oxSolid = interface.IERC20(strategy.OXSOLID())
+        auraBal = interface.IERC20(strategy.AURABAL())
 
-        calls = self.add_entity_balances_for_tokens(calls, "oxSolid", oxSolid, entities)
+        calls = self.add_entity_balances_for_tokens(calls, "auraBal", auraBal, entities)
 
         return calls
 

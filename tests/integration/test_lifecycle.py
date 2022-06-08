@@ -19,6 +19,8 @@ def test_setting_min_impacts_ratio_locked(
     assert (
         abs(want.balanceOf(vault) - startingBalance // 2) <= 1
     )  ## 50% is deposited in the vault
+
+    locked, _ = locker.balances(strategy)
     assert (
-        locker.lockedBalanceOf(strategy) >= startingBalance // 2
+        locked >= startingBalance // 2
     )  ## 50% is locked (due to rounding between oxd and boxd we use >=)
