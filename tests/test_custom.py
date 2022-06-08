@@ -111,3 +111,8 @@ def test_delegation_was_correct(deployer, vault, strategy, want, governance, ran
 
     strategy.manualSetDelegate(randomUser, {"from": governance})
     assert locker.delegates(strategy) == randomUser
+
+def test_bribe_claiming_no_processor(strategy, deployer, randomUser):
+    with brownie.reverts("Bribes processor not set"):
+        strategy.claimBribesFromHiddenHand(randomUser, [], {"from": deployer})
+

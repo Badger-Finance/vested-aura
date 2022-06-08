@@ -20,9 +20,10 @@ contract MyStrategy is BaseStrategy {
     using SafeMathUpgradeable for uint256;
 
     bool public withdrawalSafetyCheck;
-
     // If nothing is unlocked, processExpiredLocks will revert
     bool public processLocksOnReinvest;
+
+    IBribesProcessor public bribesProcessor;
 
     IBalancerVault public constant BALANCER_VAULT = IBalancerVault(0xBA12222222228d8Ba445958a75a0704d566BF2C8);
 
@@ -45,9 +46,6 @@ contract MyStrategy is BaseStrategy {
     bytes32 public constant AURA_ETH_POOL_ID = 0x5e43529b3135181497b94869b7115aa318d56b94000200000000000000000930;
 
     uint256 private constant BPT_WETH_INDEX = 1;
-
-    // TODO: Mainnet
-    address public constant BRIBES_PROCESSOR = address(0);
 
     event RewardsCollected(address token, uint256 amount);
 
@@ -90,7 +88,13 @@ contract MyStrategy is BaseStrategy {
         processLocksOnReinvest = newProcessLocksOnReinvest;
     }
 
-    /// ===== View Functions =====
+     ///@dev Change the contract that handles bribes
+    function setBribesProcessor(IBribesProcessor newBribesProcessor) external {
+        _onlyGovernance();
+        bribesProcessor = newBribesProcessor;
+    }
+
+   /// ===== View Functions =====
 
     /// @dev Return the name of the strategy
     function getName() external pure override returns (string memory) {
@@ -248,6 +252,8 @@ contract MyStrategy is BaseStrategy {
     /// @notice Hidden hand only allows to claim all tokens at once, not individually
     /// @notice allows claiming any token as it uses the difference in balance
     function claimBribesFromHiddenHand(IRewardDistributor hiddenHandDistributor, IRewardDistributor.Claim[] calldata _claims) external {
+        require(address(bribesProcessor) != address(0), "Bribes processor not set");
+
         uint256[] memory beforeBalance = new uint256[](_claims.length);
         uint256 beforeVaultBalance = _getBalance();
         uint256 beforePricePerFullShare = _getPricePerFullShare();
@@ -341,12 +347,12 @@ contract MyStrategy is BaseStrategy {
 
     /// @dev Notify the BribesProcessor that a new round of bribes has happened
     function _notifyBribesProcessor() internal {
-        IBribesProcessor(BRIBES_PROCESSOR).notifyNewRound();
+        bribesProcessor.notifyNewRound();
     }
 
     /// @dev Send funds to the bribes receiver
     function _sendTokenToBribesProcessor(address token, uint256 amount) internal {
-        IERC20Upgradeable(token).safeTransfer(BRIBES_PROCESSOR, amount);
+        IERC20Upgradeable(token).safeTransfer(address(bribesProcessor), amount);
         emit RewardsCollected(token, amount);
     }
 
