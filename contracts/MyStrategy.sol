@@ -225,7 +225,7 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
         harvested = new TokenAmount[](1);
         harvested[0].token = address(AURA);
 
-        uint256 auraBalEarned = AURABAL.balanceOf(address(this)) - auraBalBalanceBefore;
+        uint256 auraBalEarned = AURABAL.balanceOf(address(this)).sub(auraBalBalanceBefore);
         // auraBAL -> BAL/ETH BPT -> WETH -> AURA
         if (auraBalEarned > 0) {
             // Common structs for swaps
@@ -263,7 +263,7 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
             BALANCER_VAULT.exitPool(BAL_ETH_POOL_ID, address(this), payable(address(this)), exitPoolRequest);
 
             // Swap WETH -> AURA
-            uint256 wethEarned = WETH.balanceOf(address(this)) - wethBalanceBefore;
+            uint256 wethEarned = WETH.balanceOf(address(this)).sub(wethBalanceBefore);
             singleSwap = IBalancerVault.SingleSwap({
                 poolId: AURA_ETH_POOL_ID,
                 kind: IBalancerVault.SwapKind.GIVEN_IN,
