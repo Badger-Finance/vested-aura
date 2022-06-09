@@ -25,6 +25,8 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
     // If nothing is unlocked, processExpiredLocks will revert
     bool public processLocksOnReinvest;
 
+    bool private isClaimingBribes;
+
     IBribesProcessor public bribesProcessor;
 
     IBalancerVault public constant BALANCER_VAULT = IBalancerVault(0xBA12222222228d8Ba445958a75a0704d566BF2C8);
@@ -46,8 +48,6 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
     bytes32 public constant AURABAL_BALETH_BPT_POOL_ID = 0xd97b6a43ee27267950aa55e9e38cc0ee4cf211c600020000000000000000092e;
     bytes32 public constant BAL_ETH_POOL_ID = 0xdc2ecfdf2688f92c85064be0b929693acc6dbca6000200000000000000000701;
     bytes32 public constant AURA_ETH_POOL_ID = 0x5e43529b3135181497b94869b7115aa318d56b94000200000000000000000930;
-
-    IRewardDistributor HH_REWARD_DISTRIBUTOR = IRewardDistributor(0x0b139682D5C9Df3e735063f46Fb98c689540Cf3A);
 
     uint256 private constant BPT_WETH_INDEX = 1;
 
@@ -293,7 +293,7 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
     /// @dev allows claiming of multiple bribes, badger is sent to tree
     /// @notice Hidden hand only allows to claim all tokens at once, not individually
     /// @notice allows claiming any token as it uses the difference in balance
-    function claimBribesFromHiddenHand(IRewardDistributor.Claim[] calldata _claims) external nonReentrant {
+    function claimBribesFromHiddenHand(IRewardDistributor hiddenHandDistributor, IRewardDistributor.Claim[] calldata _claims) external nonReentrant {
         _onlyGovernanceOrStrategist();
         require(address(bribesProcessor) != address(0), "Bribes processor not set");
 
@@ -305,12 +305,14 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
         // Track token balances before bribes claim
         uint256[] memory beforeBalance = new uint256[](_claims.length);
         for (uint256 i = 0; i < _claims.length; i++) {
-            (address token, , , ) = HH_REWARD_DISTRIBUTOR.rewards(_claims[i].identifier);
+            (address token, , , ) = hiddenHandDistributor.rewards(_claims[i].identifier);
             beforeBalance[i] = IERC20Upgradeable(token).balanceOf(address(this));
         }
 
         // Claim bribes
-        HH_REWARD_DISTRIBUTOR.claim(_claims);
+        isClaimingBribes = true;
+        hiddenHandDistributor.claim(_claims);
+        isClaimingBribes = false;
 
         uint256 ethEarned = address(this).balance.sub(ethBalanceBefore);
 
@@ -323,7 +325,7 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
         }
 
         for (uint256 i = 0; i < _claims.length; i++) {
-            (address token, , , ) = HH_REWARD_DISTRIBUTOR.rewards(_claims[i].identifier);
+            (address token, , , ) = hiddenHandDistributor.rewards(_claims[i].identifier);
             uint256 difference = IERC20Upgradeable(token).balanceOf(address(this)).sub(beforeBalance[i]);
             if (difference > 0) {
                 nonZeroDiff = true;
@@ -431,6 +433,6 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
 
     /// @dev Can only receive ether from Hidden Hand
     receive() external payable {
-        require(msg.sender == address(HH_REWARD_DISTRIBUTOR), "onlyHhRewardDistributor");
+        require(isClaimingBribes, "onlyWhileClaiming");
     }
 }
