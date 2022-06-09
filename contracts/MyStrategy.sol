@@ -103,8 +103,6 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
         bribesProcessor = newBribesProcessor;
     }
 
-    // TODO: Eth sweep function?
-
     /// @dev Function to move rewards that are not protected
     /// @notice Only not protected, moves the whole amount using _handleRewardTransfer
     /// @notice because token paths are hardcoded, this function is safe to be called by anyone
@@ -115,6 +113,17 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
 
         uint256 toSend = IERC20Upgradeable(token).balanceOf(address(this));
         _handleRewardTransfer(token, toSend);
+    }
+
+    /// @dev Convert balance of contract to WETH and send to bribe processor
+    function sweepEth() public {
+        _onlyGovernanceOrStrategist();
+
+        uint256 ethBalance = address(this).balance;
+        if (ethBalance > 0) {
+            IWeth(address(WETH)).deposit{value: ethBalance}();
+            _handleRewardTransfer(address(WETH), ethBalance);
+        }
     }
 
     /// @dev Bulk function for sweepRewardToken
