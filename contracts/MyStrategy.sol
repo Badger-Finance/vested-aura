@@ -212,16 +212,22 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
         return _amount;
     }
 
+    /// @notice Autocompound auraBAL rewards into AURA.
+    /// @dev Anyone can claim bribes for this contract from hidden hands with 
+    ///      the correct merkle proof. Therefore, only tokens that are gained
+    ///      after claiming rewards or swapping are auto-compunded.
     function _harvest() internal override returns (TokenAmount[] memory harvested) {
+        uint256 auraBalBalanceBefore = AURABAL.balanceOf(address(this));
+
         // Claim auraBAL from locker
         LOCKER.getReward(address(this));
 
         harvested = new TokenAmount[](1);
         harvested[0].token = address(AURA);
 
-        uint256 auraBalBalance = AURABAL.balanceOf(address(this));
+        uint256 auraBalEarned = AURABAL.balanceOf(address(this)).sub(auraBalBalanceBefore);
         // auraBAL -> BAL/ETH BPT -> WETH -> AURA
-        if (auraBalBalance > 0) {
+        if (auraBalEarned > 0) {
             // Common structs for swaps
             IBalancerVault.SingleSwap memory singleSwap;
             IBalancerVault.FundManagement memory fundManagement = IBalancerVault.FundManagement({
@@ -237,31 +243,33 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
                 kind: IBalancerVault.SwapKind.GIVEN_IN,
                 assetIn: IAsset(address(AURABAL)),
                 assetOut: IAsset(address(BALETH_BPT)),
-                amount: auraBalBalance,
+                amount: auraBalEarned,
                 userData: new bytes(0)
             });
-            uint256 balEthBptBalance = BALANCER_VAULT.swap(singleSwap, fundManagement, 0, type(uint256).max);
+            uint256 balEthBptEarned = BALANCER_VAULT.swap(singleSwap, fundManagement, 0, type(uint256).max);
 
             // Withdraw BAL/ETH BPT -> WETH
+            uint256 wethBalanceBefore = WETH.balanceOf(address(this));
+
             IAsset[] memory assets = new IAsset[](2);
             assets[0] = IAsset(address(BAL));
             assets[1] = IAsset(address(WETH));
             IBalancerVault.ExitPoolRequest memory exitPoolRequest = IBalancerVault.ExitPoolRequest({
                 assets: assets,
                 minAmountsOut: new uint256[](2),
-                userData: abi.encode(ExitKind.EXACT_BPT_IN_FOR_ONE_TOKEN_OUT, balEthBptBalance, BPT_WETH_INDEX),
+                userData: abi.encode(ExitKind.EXACT_BPT_IN_FOR_ONE_TOKEN_OUT, balEthBptEarned, BPT_WETH_INDEX),
                 toInternalBalance: false
             });
             BALANCER_VAULT.exitPool(BAL_ETH_POOL_ID, address(this), payable(address(this)), exitPoolRequest);
 
             // Swap WETH -> AURA
-            uint256 wethBalance = WETH.balanceOf(address(this));
+            uint256 wethEarned = WETH.balanceOf(address(this)).sub(wethBalanceBefore);
             singleSwap = IBalancerVault.SingleSwap({
                 poolId: AURA_ETH_POOL_ID,
                 kind: IBalancerVault.SwapKind.GIVEN_IN,
                 assetIn: IAsset(address(WETH)),
                 assetOut: IAsset(address(AURA)),
-                amount: wethBalance,
+                amount: wethEarned,
                 userData: new bytes(0)
             });
             harvested[0].amount = BALANCER_VAULT.swap(singleSwap, fundManagement, 0, type(uint256).max);
@@ -275,8 +283,8 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
 
     // TODO: Check this
     /// @dev allows claiming of multiple bribes, badger is sent to tree
-    /// @notice Hidden hand only allows to claim all tokens at once, not individually
-    /// @notice allows claiming any token as it uses the difference in balance
+    /// @notice Hidden hand only allows to claim all tokens at once, not individually.
+    ///         Allows claiming any token as it uses the difference in balance
     function claimBribesFromHiddenHand(IRewardDistributor hiddenHandDistributor, IRewardDistributor.Claim[] calldata _claims) external nonReentrant {
         _onlyGovernanceOrStrategist();
         require(address(bribesProcessor) != address(0), "Bribes processor not set");
