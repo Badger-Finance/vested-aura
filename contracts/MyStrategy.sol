@@ -115,17 +115,6 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
         _handleRewardTransfer(token, toSend);
     }
 
-    /// @dev Convert balance of contract to WETH and send to bribe processor
-    function sweepEth() public {
-        _onlyGovernanceOrStrategist();
-
-        uint256 ethBalance = address(this).balance;
-        if (ethBalance > 0) {
-            IWeth(address(WETH)).deposit{value: ethBalance}();
-            _handleRewardTransfer(address(WETH), ethBalance);
-        }
-    }
-
     /// @dev Bulk function for sweepRewardToken
     function sweepRewards(address[] calldata tokens) external {
         uint256 length = tokens.length;
@@ -288,7 +277,6 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
     }
 
     // TODO: Check this
-    //       Handle eth bribes
     //       Hardcode claim.account = address(this)?
     /// @dev allows claiming of multiple bribes, badger is sent to tree
     /// @notice Hidden hand only allows to claim all tokens at once, not individually
