@@ -288,12 +288,16 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
         uint256 beforeVaultBalance = _getBalance();
         uint256 beforePricePerFullShare = _getPricePerFullShare();
 
-        uint256 ethBalanceBefore = address(this).balance;
+        // Hidden hand uses BRIBE_VAULT address as a placeholder for ETH
+        address hhBribeVault = hiddenHandDistributor.BRIBE_VAULT();
 
         // Track token balances before bribes claim
         uint256[] memory beforeBalance = new uint256[](_claims.length);
         for (uint256 i = 0; i < _claims.length; i++) {
             (address token, , , ) = hiddenHandDistributor.rewards(_claims[i].identifier);
+            if (token == hhBribeVault) {
+                token = address(WETH);
+            }
             beforeBalance[i] = IERC20Upgradeable(token).balanceOf(address(this));
         }
 
@@ -302,18 +306,14 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
         hiddenHandDistributor.claim(_claims);
         isClaimingBribes = false;
 
-        uint256 ethEarned = address(this).balance.sub(ethBalanceBefore);
-
-        bool nonZeroDiff = ethEarned > 0; // Cached value but also to check if we need to notifyProcessor
+        bool nonZeroDiff; // Cached value but also to check if we need to notifyProcessor
         // Ultimately it's proof of non-zero which is good enough
-
-        if (ethEarned > 0) {
-            IWeth(address(WETH)).deposit{value: ethEarned}();
-            _handleRewardTransfer(address(WETH), ethEarned);
-        }
 
         for (uint256 i = 0; i < _claims.length; i++) {
             (address token, , , ) = hiddenHandDistributor.rewards(_claims[i].identifier);
+            if (token == hhBribeVault) {
+                token = address(WETH);
+            }
             uint256 difference = IERC20Upgradeable(token).balanceOf(address(this)).sub(beforeBalance[i]);
             if (difference > 0) {
                 nonZeroDiff = true;
@@ -422,5 +422,6 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
     /// @dev Can only receive ether from Hidden Hand
     receive() external payable {
         require(isClaimingBribes, "onlyWhileClaiming");
+        IWeth(address(WETH)).deposit{value: msg.value}();
     }
 }
