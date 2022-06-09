@@ -276,8 +276,7 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
         }
     }
 
-    // TODO: Check this
-    //       Hardcode claim.account = address(this)?
+    // TODO: Hardcode claim.account = address(this)?
     /// @dev allows claiming of multiple bribes, badger is sent to tree
     /// @notice Hidden hand only allows to claim all tokens at once, not individually
     /// @notice allows claiming any token as it uses the difference in balance
@@ -288,7 +287,7 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
         uint256 beforeVaultBalance = _getBalance();
         uint256 beforePricePerFullShare = _getPricePerFullShare();
 
-        // Hidden hand uses BRIBE_VAULT address as a placeholder for ETH
+        // Hidden hand uses BRIBE_VAULT address as a substitute for ETH
         address hhBribeVault = hiddenHandDistributor.BRIBE_VAULT();
 
         // Track token balances before bribes claim
