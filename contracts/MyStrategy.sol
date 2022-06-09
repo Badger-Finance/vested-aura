@@ -427,7 +427,7 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
         _processExtraToken(address(BADGER), amount);
     }
 
-    /// MANUAL FUNCTIONS ///
+    /// PAYABLE FUNCTIONS ///
 
     /// @dev Can only receive ether from Hidden Hand
     receive() external payable {
