@@ -281,7 +281,7 @@ def test_check_manual_permissions(
         strategy.sweepRewards([want], {"from": rando})
     with brownie.reverts():
         strategy.setBribesProcessor(rando, {"from": rando})
-    with brownie.reverts():
+    with brownie.reverts("onlyGovernanceOrStrategist"):
         strategy.claimBribesFromHiddenHand(rando, [], {"from": rando})
 
     ## Strategist is bounced for manual ops
@@ -293,3 +293,5 @@ def test_check_manual_permissions(
         strategy.manualSendAuraToVault({"from": strategist})
     with brownie.reverts():
         strategy.setBribesProcessor(rando, {"from": strategist})
+    with brownie.reverts("Bribes processor not set"):
+        strategy.claimBribesFromHiddenHand(strategist, [], {"from": strategist})

@@ -89,6 +89,71 @@ def test_after_deposit_locker_has_more_funds(
     )
 
 
+def test_locked_balance_after_expiration(
+    locker, deployer, vault, strategy, want, governance
+):
+    """
+    Check if locker.balance(strategy) includes both locked + unlocked amount
+    """
+    locked, _ = locker.balances(strategy)
+    assert locked == 0
+    assert locker.balanceOf(strategy) == 0
+
+    # Setup
+    startingBalance = want.balanceOf(deployer)
+    depositAmount = startingBalance // 2
+    assert startingBalance >= depositAmount
+    assert startingBalance > 0
+    # End Setup
+    # Deposit
+    assert want.balanceOf(vault) == 0
+
+    want.approve(vault, MaxUint256, {"from": deployer})
+    vault.deposit(depositAmount, {"from": deployer})
+
+    available = vault.available()
+    assert available > 0
+
+    vault.earn({"from": governance})
+
+    assert strategy.balanceOfPool() == available
+
+    chain.sleep(10000 * 13)  # Mine so we get some interest
+    chain.mine()
+
+    # Active locked balance starts at 0
+    locked1, _ = locker.balances(strategy)
+
+    assert locked1 == available
+    assert locker.balanceOf(strategy) == 0
+
+    chain.sleep(days(7))
+    chain.mine()
+
+    # Active locked balance kicks in at the start of the next epoch
+    locked2, _ = locker.balances(strategy)
+
+    assert locked2 == available
+    assert locker.balanceOf(strategy) == available
+
+    # Locked balance becomes inactive after lock expires
+    chain.sleep(days(7 * 52))
+    chain.mine()
+
+    locked3, _ = locker.balances(strategy)
+    assert locked3 == available
+    assert locker.balanceOf(strategy) == 0
+
+    # Locked balance should become 0 after expired locks are processed
+    strategy.manualProcessExpiredLocks({"from": deployer})
+
+    locked3, _ = locker.balances(strategy)
+    assert locked3 == 0
+    assert locker.balanceOf(strategy) == 0
+    assert strategy.balanceOfPool() == 0
+    assert strategy.balanceOfWant() == available
+
+
 def test_delegation_was_correct(deployer, vault, strategy, want, governance, randomUser, locker):
     # Setup
     startingBalance = want.balanceOf(deployer)
@@ -111,6 +176,7 @@ def test_delegation_was_correct(deployer, vault, strategy, want, governance, ran
 
     strategy.manualSetDelegate(randomUser, {"from": governance})
     assert locker.delegates(strategy) == randomUser
+
 
 def test_bribe_claiming_no_processor(strategy, strategist, randomUser):
     with brownie.reverts("Bribes processor not set"):
