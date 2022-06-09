@@ -1,26 +1,9 @@
 # Vote-locked aura strategy
 
-## Kovan testing
+## Testing
 
 ```bash
-brownie test --network kovan-fork
-```
-
-Kovan network config:
-
-```yaml
-  - name: Ganache-CLI (Kovan Fork)
-    id: kovan-fork
-    cmd: ganache-cli
-    host: http://127.0.0.1
-    timeout: 120
-    cmd_settings:
-      port: 8545
-      gas_limit: 12000000
-      accounts: 10
-      evm_version: istanbul
-      mnemonic: brownie
-      fork: kovan
+brownie test
 ```
 
 # Badger Strategy V1.5 Brownie Mix

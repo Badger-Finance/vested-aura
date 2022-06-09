@@ -11,6 +11,7 @@ from brownie import (
 from _setup.config import (
     WANT,
     WHALE_ADDRESS,
+    BAL_WHALE,
     PERFORMANCE_FEE_GOVERNANCE,
     PERFORMANCE_FEE_STRATEGIST,
     WITHDRAWAL_FEE,
@@ -125,8 +126,6 @@ def deployed(
             MANAGEMENT_FEE,
         ],
     )
-    vault.setStrategist(deployer, {"from": governance})
-    # NOTE: TheVault starts unpaused
 
     strategy = MyStrategy.deploy({"from": deployer})
     strategy.initialize(vault)
@@ -189,7 +188,7 @@ def withdrawalFee(deployed):
 
 @pytest.fixture
 def auraStakingProxy():
-    return interface.IAuraStakingProxy("0x0C602883797532a7218161f0b0ef3D868786F254")
+    return interface.IAuraStakingProxy("0xd9e863B7317a66fe0a4d2834910f604Fd6F89C6c")
 
 
 @pytest.fixture
@@ -234,9 +233,13 @@ def setup_strat(governance, deployer, vault, strategy, want):
 
 
 @pytest.fixture(autouse=True)
-def distribute_auraBal(auraStakingProxy, keeper):
-    auraStakingProxy.setKeeper(keeper, {"from": auraStakingProxy.owner()})
-    auraStakingProxy.distribute(1, {'from': keeper})
+def distribute_auraBal(strategy, auraStakingProxy):
+    bal = interface.IERC20Detailed(strategy.BAL())
+    bal.transfer(auraStakingProxy, 10e18, {"from": BAL_WHALE})
+
+    # auraStakingProxy.setKeeper(keeper, {"from": })
+    # auraStakingProxy.distribute(1, {'from': keeper})
+    auraStakingProxy.distribute({'from': auraStakingProxy.keeper()})
 
 
 ## Forces reset before each test
