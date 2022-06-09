@@ -66,6 +66,11 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
 
         AURABAL.safeApprove(address(BALANCER_VAULT), type(uint256).max);
         WETH.safeApprove(address(BALANCER_VAULT), type(uint256).max);
+
+        // Set Safe Defaults
+        withdrawalSafetyCheck = true;
+
+        // Process locks on reinvest is best left false as gov can figure out if they need to save that gas
     }
 
     /// ===== Extra Functions =====
