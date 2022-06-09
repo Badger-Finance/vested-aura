@@ -303,9 +303,10 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
         for (uint256 i = 0; i < _claims.length; i++) {
             (address token, , , ) = hiddenHandDistributor.rewards(_claims[i].identifier);
             if (token == hhBribeVault) {
-                token = address(WETH);
+                beforeBalance[i] = address(this).balance;
+            } else {
+                beforeBalance[i] = IERC20Upgradeable(token).balanceOf(address(this));
             }
-            beforeBalance[i] = IERC20Upgradeable(token).balanceOf(address(this));
         }
 
         // Claim bribes
@@ -318,13 +319,21 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
 
         for (uint256 i = 0; i < _claims.length; i++) {
             (address token, , , ) = hiddenHandDistributor.rewards(_claims[i].identifier);
+
             if (token == hhBribeVault) {
-                token = address(WETH);
-            }
-            uint256 difference = IERC20Upgradeable(token).balanceOf(address(this)).sub(beforeBalance[i]);
-            if (difference > 0) {
-                nonZeroDiff = true;
-                _handleRewardTransfer(token, difference);
+                // ETH
+                uint256 difference = address(this).balance.sub(beforeBalance[i]);
+                if (difference > 0) {
+                    IWeth(address(WETH)).deposit{value: difference}();
+                    nonZeroDiff = true;
+                    _handleRewardTransfer(address(WETH), difference);
+                }
+            } else {
+                uint256 difference = IERC20Upgradeable(token).balanceOf(address(this)).sub(beforeBalance[i]);
+                if (difference > 0) {
+                    nonZeroDiff = true;
+                    _handleRewardTransfer(token, difference);
+                }
             }
         }
 
@@ -429,6 +438,5 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
     /// @dev Can only receive ether from Hidden Hand
     receive() external payable {
         require(isClaimingBribes, "onlyWhileClaiming");
-        IWeth(address(WETH)).deposit{value: msg.value}();
     }
 }
