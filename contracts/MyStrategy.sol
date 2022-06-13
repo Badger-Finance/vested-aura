@@ -34,20 +34,18 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
     address public constant BADGER = 0x3472A5A71965499acd81997a54BBA8D852C6E53d;
     address public constant BADGER_TREE = 0x660802Fc641b154aBA66a62137e71f331B6d787A;
 
-    // TODO: Mainnet
-    IAuraLocker public constant LOCKER = IAuraLocker(0x117f8Ec16C00C9F321129651abBc4A38caD350D2);
+    IAuraLocker public constant LOCKER = IAuraLocker(0x3Fa73f1E5d8A792C80F426fc8F84FBF7Ce9bBCAC);
 
-    // TODO: Mainnet
-    IERC20Upgradeable public constant BAL = IERC20Upgradeable(0xcb355677E36f390Ccc4a5d4bEADFbF1Eb2071c81);
-    IERC20Upgradeable public constant WETH = IERC20Upgradeable(0xdFCeA9088c8A88A76FF74892C1457C17dfeef9C1);
-    IERC20Upgradeable public constant AURA = IERC20Upgradeable(0x16fe78B330B8C628DEA89344DB003a86B54Bb69d);
-    IERC20Upgradeable public constant AURABAL = IERC20Upgradeable(0x11B2655B2F64a70888BcAF4AD340992AB6fc8cfa);
-    IERC20Upgradeable public constant BALETH_BPT = IERC20Upgradeable(0xDC2EcFDf2688f92c85064bE0b929693ACC6dBcA6);
+    IERC20Upgradeable public constant BAL = IERC20Upgradeable(0xba100000625a3754423978a60c9317c58a424e3D);
+    IERC20Upgradeable public constant WETH = IERC20Upgradeable(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
+    IERC20Upgradeable public constant AURA = IERC20Upgradeable(0xC0c293ce456fF0ED870ADd98a0828Dd4d2903DBF);
+    IERC20Upgradeable public constant AURABAL = IERC20Upgradeable(0x616e8BfA43F920657B3497DBf40D6b1A02D4608d);
+    IERC20Upgradeable public constant BALETH_BPT = IERC20Upgradeable(0x5c6Ee304399DBdB9C8Ef030aB642B10820DB8F56);
 
-    // TODO: Mainnet
-    bytes32 public constant AURABAL_BALETH_BPT_POOL_ID = 0xd97b6a43ee27267950aa55e9e38cc0ee4cf211c600020000000000000000092e;
-    bytes32 public constant BAL_ETH_POOL_ID = 0xdc2ecfdf2688f92c85064be0b929693acc6dbca6000200000000000000000701;
-    bytes32 public constant AURA_ETH_POOL_ID = 0x5e43529b3135181497b94869b7115aa318d56b94000200000000000000000930;
+    bytes32 public constant AURABAL_BALETH_BPT_POOL_ID = 0x6641a8c1d33bd3dec8dd85e69c63cafb5bf36388000200000000000000000234;
+    bytes32 public constant BAL_ETH_POOL_ID = 0x5c6ee304399dbdb9c8ef030ab642b10820db8f56000200000000000000000014;
+    // TODO: Final pool
+    bytes32 public constant AURA_ETH_POOL_ID = 0x6fc73b9d624b543f8b6b88fc3ce627877ff169ee000200000000000000000235;
 
     uint256 private constant BPT_WETH_INDEX = 1;
 
