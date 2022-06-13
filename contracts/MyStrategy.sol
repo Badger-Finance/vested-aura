@@ -15,6 +15,7 @@ import {ExitKind, IBalancerVault} from "../interfaces/balancer/IBalancerVault.so
 import {IAuraLocker} from "../interfaces/aura/IAuraLocker.sol";
 import {IRewardDistributor} from "../interfaces/hiddenhand/IRewardDistributor.sol";
 import {IBribesProcessor} from "../interfaces/badger/IBribesProcessor.sol";
+import {IWeth} from "../interfaces/weth/IWeth.sol";
 
 contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
     using SafeERC20Upgradeable for IERC20Upgradeable;
@@ -23,6 +24,8 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
     bool public withdrawalSafetyCheck;
     // If nothing is unlocked, processExpiredLocks will revert
     bool public processLocksOnReinvest;
+
+    bool private isClaimingBribes;
 
     IBribesProcessor public bribesProcessor;
 
@@ -102,7 +105,7 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
 
     /// @dev Function to move rewards that are not protected
     /// @notice Only not protected, moves the whole amount using _handleRewardTransfer
-    /// @notice because token paths are harcoded, this function is safe to be called by anyone
+    /// @notice because token paths are hardcoded, this function is safe to be called by anyone
     /// @notice Will not notify the BRIBES_PROCESSOR as this could be triggered outside bribes
     function sweepRewardToken(address token) public nonReentrant {
         _onlyGovernanceOrStrategist();
@@ -281,7 +284,7 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
         }
     }
 
-    // TODO: Check this
+    // TODO: Hardcode claim.account = address(this)?
     /// @dev allows claiming of multiple bribes, badger is sent to tree
     /// @notice Hidden hand only allows to claim all tokens at once, not individually.
     ///         Allows claiming any token as it uses the difference in balance
@@ -292,25 +295,45 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
         uint256 beforeVaultBalance = _getBalance();
         uint256 beforePricePerFullShare = _getPricePerFullShare();
 
+        // Hidden hand uses BRIBE_VAULT address as a substitute for ETH
+        address hhBribeVault = hiddenHandDistributor.BRIBE_VAULT();
+
         // Track token balances before bribes claim
         uint256[] memory beforeBalance = new uint256[](_claims.length);
         for (uint256 i = 0; i < _claims.length; i++) {
             (address token, , , ) = hiddenHandDistributor.rewards(_claims[i].identifier);
-            beforeBalance[i] = IERC20Upgradeable(token).balanceOf(address(this));
+            if (token == hhBribeVault) {
+                beforeBalance[i] = address(this).balance;
+            } else {
+                beforeBalance[i] = IERC20Upgradeable(token).balanceOf(address(this));
+            }
         }
 
         // Claim bribes
+        isClaimingBribes = true;
         hiddenHandDistributor.claim(_claims);
+        isClaimingBribes = false;
 
         bool nonZeroDiff; // Cached value but also to check if we need to notifyProcessor
         // Ultimately it's proof of non-zero which is good enough
 
         for (uint256 i = 0; i < _claims.length; i++) {
             (address token, , , ) = hiddenHandDistributor.rewards(_claims[i].identifier);
-            uint256 difference = IERC20Upgradeable(token).balanceOf(address(this)).sub(beforeBalance[i]);
-            if (difference > 0) {
-                nonZeroDiff = true;
-                _handleRewardTransfer(token, difference);
+
+            if (token == hhBribeVault) {
+                // ETH
+                uint256 difference = address(this).balance.sub(beforeBalance[i]);
+                if (difference > 0) {
+                    IWeth(address(WETH)).deposit{value: difference}();
+                    nonZeroDiff = true;
+                    _handleRewardTransfer(address(WETH), difference);
+                }
+            } else {
+                uint256 difference = IERC20Upgradeable(token).balanceOf(address(this)).sub(beforeBalance[i]);
+                if (difference > 0) {
+                    nonZeroDiff = true;
+                    _handleRewardTransfer(token, difference);
+                }
             }
         }
 
@@ -399,6 +422,7 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
 
     /// @dev Send funds to the bribes receiver
     function _sendTokenToBribesProcessor(address token, uint256 amount) internal {
+        // TODO: Too many SLOADs
         IERC20Upgradeable(token).safeTransfer(address(bribesProcessor), amount);
         emit RewardsCollected(token, amount);
     }
@@ -407,5 +431,12 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
     function _sendBadgerToTree(uint256 amount) internal {
         IERC20Upgradeable(BADGER).safeTransfer(BADGER_TREE, amount);
         _processExtraToken(address(BADGER), amount);
+    }
+
+    /// PAYABLE FUNCTIONS ///
+
+    /// @dev Can only receive ether from Hidden Hand
+    receive() external payable {
+        require(isClaimingBribes, "onlyWhileClaiming");
     }
 }

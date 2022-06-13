@@ -125,7 +125,6 @@ def deployed(
             MANAGEMENT_FEE,
         ],
     )
-    vault.setStrategist(deployer, {"from": governance})
     # NOTE: TheVault starts unpaused
 
     strategy = MyStrategy.deploy({"from": deployer})

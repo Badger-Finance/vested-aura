@@ -178,7 +178,16 @@ def test_delegation_was_correct(deployer, vault, strategy, want, governance, ran
     assert locker.delegates(strategy) == randomUser
 
 
-def test_bribe_claiming_no_processor(strategy, deployer, randomUser):
+def test_bribe_claiming_no_processor(strategy, strategist, randomUser):
     with brownie.reverts("Bribes processor not set"):
-        strategy.claimBribesFromHiddenHand(randomUser, [], {"from": deployer})
+        strategy.claimBribesFromHiddenHand(randomUser, [], {"from": strategist})
 
+
+def test_cant_sweep_want(want, strategy, strategist):
+    with brownie.reverts("_onlyNotProtectedTokens"):
+        strategy.sweepRewards([want], {"from": strategist})
+
+
+def test_cant_take_eth(deployer, strategy):
+    with brownie.reverts("onlyWhileClaiming"):
+        accounts.at(deployer).transfer(strategy, "1 ether")
