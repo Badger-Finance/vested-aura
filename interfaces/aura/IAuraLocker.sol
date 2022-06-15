@@ -46,6 +46,16 @@ interface IAuraLocker {
 
     function userLocks(address _user, uint256 _index) external view returns (LockedBalance memory lockedBals);
 
+    function lockedBalances(address _user)
+        external
+        view
+        returns (
+            uint256 total,
+            uint256 unlockable,
+            uint256 locked,
+            LockedBalance[] memory lockData
+        );
+
     function findEpochId(uint256 _time) external view returns (uint256 epoch);
 
     function epochs(uint256 _index) external view returns (Epoch memory epoch);

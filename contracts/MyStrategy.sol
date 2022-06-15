@@ -383,8 +383,8 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
     }
 
     function checkUpkeep(bytes calldata checkData) external view returns (bool upkeepNeeded, bytes memory performData) {
-        // We need to unlock funds if the lockedBalance (locked + unlocked) is greater than the balance (actively locked for this epoch)
-        upkeepNeeded = balanceOfPool() > LOCKER.balanceOf(address(this));
+        (, uint256 unlockable, ,) = LOCKER.lockedBalances(address(this));
+        upkeepNeeded = unlockable > 0;
     }
 
     /// @dev Function for ChainLink Keepers to automatically process expired locks

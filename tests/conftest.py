@@ -228,7 +228,7 @@ def setup_strat(governance, deployer, vault, strategy, want):
 
     vault.earn({"from": governance})
 
-    chain.sleep(10000 * 13)  # Mine so we get some interest
+    chain.sleep(1000 * 13)  # Mine so we get some interest
     return strategy
 
 
