@@ -42,10 +42,9 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
     IERC20Upgradeable public constant AURABAL = IERC20Upgradeable(0x616e8BfA43F920657B3497DBf40D6b1A02D4608d);
     IERC20Upgradeable public constant BALETH_BPT = IERC20Upgradeable(0x5c6Ee304399DBdB9C8Ef030aB642B10820DB8F56);
 
-    bytes32 public constant AURABAL_BALETH_BPT_POOL_ID = 0x6641a8c1d33bd3dec8dd85e69c63cafb5bf36388000200000000000000000234;
+    bytes32 public constant AURABAL_BALETH_BPT_POOL_ID = 0x3dd0843a028c86e0b760b1a76929d1c5ef93a2dd000200000000000000000249;
     bytes32 public constant BAL_ETH_POOL_ID = 0x5c6ee304399dbdb9c8ef030ab642b10820db8f56000200000000000000000014;
-    // TODO: Final pool
-    bytes32 public constant AURA_ETH_POOL_ID = 0x6fc73b9d624b543f8b6b88fc3ce627877ff169ee000200000000000000000235;
+    bytes32 public constant AURA_ETH_POOL_ID = 0xc29562b045d80fd77c69bec09541f5c16fe20d9d000200000000000000000251;
 
     uint256 private constant BPT_WETH_INDEX = 1;
 

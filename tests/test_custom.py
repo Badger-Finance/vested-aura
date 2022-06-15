@@ -118,7 +118,7 @@ def test_locked_balance_after_expiration(
 
     assert strategy.balanceOfPool() == available
 
-    chain.sleep(10000 * 13)  # Mine so we get some interest
+    chain.sleep(10000)  # Mine so we get some interest
     chain.mine()
 
     # Active locked balance starts at 0
