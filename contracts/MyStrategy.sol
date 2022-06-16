@@ -393,11 +393,11 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
         LOCKER.processExpiredLocks(false);
     }
 
-    function _getBalance() internal returns (uint256) {
+    function _getBalance() internal view returns (uint256) {
         return IVault(vault).balance();
     }
 
-    function _getPricePerFullShare() internal returns (uint256) {
+    function _getPricePerFullShare() internal view returns (uint256) {
         return IVault(vault).getPricePerFullShare();
     }
 
