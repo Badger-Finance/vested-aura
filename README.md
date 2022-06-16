@@ -1,5 +1,15 @@
 # Vote-locked aura strategy
 
+## Deployment
+
+Vault proxy: [0xBA485b556399123261a5F9c95d413B4f93107407](https://etherscan.io/address/0xba485b556399123261a5f9c95d413b4f93107407)
+
+Vault logic: [0xc02e10157c71008B6b8F8E6AbF8d3EaC60ed561e](https://etherscan.io/address/0xc02e10157c71008B6b8F8E6AbF8d3EaC60ed561e)
+
+Strategy proxy: [0x3c0989eF27e3e3fAb87a2d7C38B35880C90E63b5](https://etherscan.io/address/0x3c0989eF27e3e3fAb87a2d7C38B35880C90E63b5)
+
+Strategy logic: [0x6f87739746c2cAD5Fc9dbd7dfA7a41eFd91135D7](https://etherscan.io/address/0x6f87739746c2cAD5Fc9dbd7dfA7a41eFd91135D7)
+
 ## Testing
 
 ```bash
