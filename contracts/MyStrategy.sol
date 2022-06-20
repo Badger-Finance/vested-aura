@@ -63,6 +63,7 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
         assert(IVault(_vault).token() == address(AURA));
 
         __BaseStrategy_init(_vault);
+        __ReentrancyGuard_init();
 
         want = address(AURA);
 
