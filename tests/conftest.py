@@ -3,7 +3,7 @@ import time
 from brownie import (
     MyStrategy,
     TheVault,
-    MockStrategy,
+    MockRewardDistributor,
     interface,
     accounts,
     chain,
@@ -240,6 +240,11 @@ def distribute_auraBal(strategy, auraStakingProxy):
     # auraStakingProxy.setKeeper(keeper, {"from": })
     # auraStakingProxy.distribute(1, {'from': keeper})
     auraStakingProxy.distribute({'from': auraStakingProxy.keeper()})
+
+
+@pytest.fixture
+def reward_distributor(deployer):
+    return MockRewardDistributor.deploy({"from": deployer})
 
 
 ## Forces reset before each test

@@ -178,9 +178,11 @@ def test_delegation_was_correct(deployer, vault, strategy, want, governance, ran
     assert locker.delegates(strategy) == randomUser
 
 
-def test_bribe_claiming_no_processor(strategy, strategist, randomUser):
-    with brownie.reverts("Bribes processor not set"):
-        strategy.claimBribesFromHiddenHand(randomUser, [], {"from": strategist})
+def test_sweep_fails_no_processor(strategy, strategist):
+    weth = interface.IWeth(strategy.WETH())
+
+    with brownie.reverts():
+        strategy.sweepRewards([weth], {"from": strategist})
 
 
 def test_cant_sweep_want(want, strategy, strategist):

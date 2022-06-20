@@ -263,9 +263,7 @@ def test_pause_checks(vault, strategy, governance):
         strategy.unpause({"from": governance})  ## Can't unpause if unpaused
 
 
-def test_check_manual_permissions(
-    strategy, vault, governance, want, deployer, locker, strategist
-):
+def test_check_manual_permissions(strategy, want, strategist, reward_distributor):
     rando = accounts[6]
 
     ## Rando is bounced
@@ -293,5 +291,3 @@ def test_check_manual_permissions(
         strategy.manualSendAuraToVault({"from": strategist})
     with brownie.reverts():
         strategy.setBribesProcessor(rando, {"from": strategist})
-    with brownie.reverts("Bribes processor not set"):
-        strategy.claimBribesFromHiddenHand(strategist, [], {"from": strategist})
