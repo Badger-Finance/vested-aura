@@ -32,7 +32,6 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
     IBalancerVault public constant BALANCER_VAULT = IBalancerVault(0xBA12222222228d8Ba445958a75a0704d566BF2C8);
 
     address public constant BADGER = 0x3472A5A71965499acd81997a54BBA8D852C6E53d;
-    address public constant BADGER_TREE = 0x660802Fc641b154aBA66a62137e71f331B6d787A;
 
     IAuraLocker public constant LOCKER = IAuraLocker(0x3Fa73f1E5d8A792C80F426fc8F84FBF7Ce9bBCAC);
 
@@ -335,7 +334,9 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
             } else {
                 uint256 difference = IERC20Upgradeable(token).balanceOf(address(this)).sub(beforeBalance[i]);
                 if (difference > 0) {
-                    nonZeroDiff = true;
+                    if (token != BADGER) {
+                        nonZeroDiff = true;
+                    }
                     _handleRewardTransfer(token, difference);
                 }
             }
@@ -434,7 +435,7 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
 
     /// @dev Send the BADGER token to the badgerTree
     function _sendBadgerToTree(uint256 amount) internal {
-        IERC20Upgradeable(BADGER).safeTransfer(BADGER_TREE, amount);
+        IERC20Upgradeable(BADGER).safeTransfer(IVault(vault).badgerTree(), amount);
         emit TreeDistribution(BADGER, amount, block.number, block.timestamp);
     }
 
