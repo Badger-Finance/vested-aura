@@ -48,6 +48,12 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
 
     uint256 private constant BPT_WETH_INDEX = 1;
 
+    event TreeDistribution(
+        address indexed token,
+        uint256 amount,
+        uint256 indexed blockNumber,
+        uint256 timestamp
+    );
     event RewardsCollected(address token, uint256 amount);
 
     /// @dev Initialize the Strategy with security settings as well as tokens
@@ -165,6 +171,10 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
         return protectedTokens;
     }
 
+    function getDelegate() public view returns (address) {
+        return LOCKER.delegates(address(this));
+    }
+
     /// ===== Internal Core Implementations =====
 
     /// @dev Deposit `_amount` of want, investing it to earn yield
@@ -217,15 +227,13 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
     ///      the correct merkle proof. Therefore, only tokens that are gained
     ///      after claiming rewards or swapping are auto-compunded.
     function _harvest() internal override returns (TokenAmount[] memory harvested) {
-        uint256 auraBalBalanceBefore = AURABAL.balanceOf(address(this));
-
         // Claim auraBAL from locker
         LOCKER.getReward(address(this));
 
         harvested = new TokenAmount[](1);
         harvested[0].token = address(AURA);
 
-        uint256 auraBalEarned = AURABAL.balanceOf(address(this)).sub(auraBalBalanceBefore);
+        uint256 auraBalEarned = AURABAL.balanceOf(address(this));
         // auraBAL -> BAL/ETH BPT -> WETH -> AURA
         if (auraBalEarned > 0) {
             // Common structs for swaps
@@ -287,7 +295,6 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
     ///         Allows claiming any token as it uses the difference in balance
     function claimBribesFromHiddenHand(IRewardDistributor hiddenHandDistributor, IRewardDistributor.Claim[] calldata _claims) external nonReentrant {
         _onlyGovernanceOrStrategist();
-        require(address(bribesProcessor) != address(0), "Bribes processor not set");
 
         uint256 beforeVaultBalance = _getBalance();
         uint256 beforePricePerFullShare = _getPricePerFullShare();
@@ -419,7 +426,8 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
 
     /// @dev Send funds to the bribes receiver
     function _sendTokenToBribesProcessor(address token, uint256 amount) internal {
-        // TODO: Too many SLOADs
+        require(address(bribesProcessor) != address(0), "Bribes processor not set");
+
         IERC20Upgradeable(token).safeTransfer(address(bribesProcessor), amount);
         emit RewardsCollected(token, amount);
     }
@@ -427,7 +435,7 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
     /// @dev Send the BADGER token to the badgerTree
     function _sendBadgerToTree(uint256 amount) internal {
         IERC20Upgradeable(BADGER).safeTransfer(BADGER_TREE, amount);
-        _processExtraToken(address(BADGER), amount);
+        emit TreeDistribution(BADGER, amount, block.number, block.timestamp);
     }
 
     /// PAYABLE FUNCTIONS ///
