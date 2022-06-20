@@ -290,7 +290,6 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
         }
     }
 
-    // TODO: Hardcode claim.account = address(this)?
     /// @dev allows claiming of multiple bribes, badger is sent to tree
     /// @notice Hidden hand only allows to claim all tokens at once, not individually.
     ///         Allows claiming any token as it uses the difference in balance
