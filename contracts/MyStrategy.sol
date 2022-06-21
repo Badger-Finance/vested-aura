@@ -17,6 +17,13 @@ import {IRewardDistributor} from "../interfaces/hiddenhand/IRewardDistributor.so
 import {IBribesProcessor} from "../interfaces/badger/IBribesProcessor.sol";
 import {IWeth} from "../interfaces/weth/IWeth.sol";
 
+/**
+ * Version 1:
+ * - Basic version
+ * Version 1.1:
+ * Fixes from CodeArena Contest
+ */
+
 contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
     using SafeERC20Upgradeable for IERC20Upgradeable;
     using SafeMathUpgradeable for uint256;
@@ -135,7 +142,7 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
 
     /// @dev Specify the version of the Strategy, for upgrades
     function version() external pure returns (string memory) {
-        return "1.0";
+        return "1.1";
     }
 
     /// @dev Does this function require `tend` to be called?
