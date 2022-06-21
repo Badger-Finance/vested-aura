@@ -117,19 +117,18 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
     /// @notice Only not protected, moves the whole amount using _handleRewardTransfer
     /// @notice because token paths are hardcoded, this function is safe to be called by anyone
     /// @notice Will not notify the BRIBES_PROCESSOR as this could be triggered outside bribes
-    function sweepRewardToken(address token) public nonReentrant {
+    function sweepRewardToken(address token) external nonReentrant {
         _onlyGovernanceOrStrategist();
-        _onlyNotProtectedTokens(token);
-
-        uint256 toSend = IERC20Upgradeable(token).balanceOf(address(this));
-        _handleRewardTransfer(token, toSend);
+        _sweepRewardToken(token);
     }
 
     /// @dev Bulk function for sweepRewardToken
-    function sweepRewards(address[] calldata tokens) external {
+    function sweepRewards(address[] calldata tokens) external nonReentrant {
+        _onlyGovernanceOrStrategist();
+
         uint256 length = tokens.length;
         for(uint i = 0; i < length; ++i){
-            sweepRewardToken(tokens[i]);
+            _sweepRewardToken(tokens[i]);
         }
     }
 
@@ -446,6 +445,13 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
         // Transfer to tree without taking any fee
         IERC20Upgradeable(BADGER).safeTransfer(IVault(vault).badgerTree(), amount);
         emit TreeDistribution(BADGER, amount, block.number, block.timestamp);
+    }
+
+    function _sweepRewardToken(address token) internal {
+        _onlyNotProtectedTokens(token);
+
+        uint256 toSend = IERC20Upgradeable(token).balanceOf(address(this));
+        _handleRewardTransfer(token, toSend);
     }
 
     /// PAYABLE FUNCTIONS ///
