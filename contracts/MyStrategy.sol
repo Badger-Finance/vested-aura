@@ -59,7 +59,7 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
     /// @notice Proxies will set any non constant variable you declare as default value
     /// @dev add any extra changeable variable at end of initializer as shown
     function initialize(address _vault) public initializer {
-        assert(IVault(_vault).token() == address(AURA));
+        require(IVault(_vault).token() == address(AURA));
 
         __BaseStrategy_init(_vault);
         __ReentrancyGuard_init();
@@ -121,7 +121,7 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
     /// @dev Bulk function for sweepRewardToken
     function sweepRewards(address[] calldata tokens) external {
         uint256 length = tokens.length;
-        for(uint i = 0; i < length; i++){
+        for(uint i = 0; i < length; ++i){
             sweepRewardToken(tokens[i]);
         }
     }
@@ -294,6 +294,7 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
     ///         Allows claiming any token as it uses the difference in balance
     function claimBribesFromHiddenHand(IRewardDistributor hiddenHandDistributor, IRewardDistributor.Claim[] calldata _claims) external nonReentrant {
         _onlyGovernanceOrStrategist();
+        uint256 numClaims = _claims.length;
 
         uint256 beforeVaultBalance = _getBalance();
         uint256 beforePricePerFullShare = _getPricePerFullShare();
@@ -302,8 +303,8 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
         address hhBribeVault = hiddenHandDistributor.BRIBE_VAULT();
 
         // Track token balances before bribes claim
-        uint256[] memory beforeBalance = new uint256[](_claims.length);
-        for (uint256 i = 0; i < _claims.length; i++) {
+        uint256[] memory beforeBalance = new uint256[](numClaims);
+        for (uint256 i = 0; i < numClaims; ++i) {
             (address token, , , ) = hiddenHandDistributor.rewards(_claims[i].identifier);
             if (token == hhBribeVault) {
                 beforeBalance[i] = address(this).balance;
@@ -320,7 +321,7 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
         bool nonZeroDiff; // Cached value but also to check if we need to notifyProcessor
         // Ultimately it's proof of non-zero which is good enough
 
-        for (uint256 i = 0; i < _claims.length; i++) {
+        for (uint256 i = 0; i < numClaims; ++i) {
             (address token, , , ) = hiddenHandDistributor.rewards(_claims[i].identifier);
 
             if (token == hhBribeVault) {
