@@ -436,6 +436,7 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
 
     /// @dev Send the BADGER token to the badgerTree
     function _sendBadgerToTree(uint256 amount) internal {
+        // Transfer to tree without taking any fee
         IERC20Upgradeable(BADGER).safeTransfer(IVault(vault).badgerTree(), amount);
         emit TreeDistribution(BADGER, amount, block.number, block.timestamp);
     }
