@@ -29,6 +29,8 @@ interface IVault {
 
     function treasury() external view returns (address);
 
+    function badgerTree() external view returns (address);
+
     // External
     function deposit(uint256 _amount) external;
 

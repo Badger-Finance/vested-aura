@@ -32,7 +32,6 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
     IBalancerVault public constant BALANCER_VAULT = IBalancerVault(0xBA12222222228d8Ba445958a75a0704d566BF2C8);
 
     address public constant BADGER = 0x3472A5A71965499acd81997a54BBA8D852C6E53d;
-    address public constant BADGER_TREE = 0x660802Fc641b154aBA66a62137e71f331B6d787A;
 
     IAuraLocker public constant LOCKER = IAuraLocker(0x3Fa73f1E5d8A792C80F426fc8F84FBF7Ce9bBCAC);
 
@@ -48,15 +47,22 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
 
     uint256 private constant BPT_WETH_INDEX = 1;
 
+    event TreeDistribution(
+        address indexed token,
+        uint256 amount,
+        uint256 indexed blockNumber,
+        uint256 timestamp
+    );
     event RewardsCollected(address token, uint256 amount);
 
     /// @dev Initialize the Strategy with security settings as well as tokens
     /// @notice Proxies will set any non constant variable you declare as default value
     /// @dev add any extra changeable variable at end of initializer as shown
     function initialize(address _vault) public initializer {
-        assert(IVault(_vault).token() == address(AURA));
+        require(IVault(_vault).token() == address(AURA));
 
         __BaseStrategy_init(_vault);
+        __ReentrancyGuard_init();
 
         want = address(AURA);
 
@@ -115,7 +121,7 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
     /// @dev Bulk function for sweepRewardToken
     function sweepRewards(address[] calldata tokens) external {
         uint256 length = tokens.length;
-        for(uint i = 0; i < length; i++){
+        for(uint i = 0; i < length; ++i){
             sweepRewardToken(tokens[i]);
         }
     }
@@ -163,6 +169,10 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
         protectedTokens[0] = want; // AURA
         protectedTokens[1] = address(AURABAL);
         return protectedTokens;
+    }
+
+    function getDelegate() public view returns (address) {
+        return LOCKER.delegates(address(this));
     }
 
     /// ===== Internal Core Implementations =====
@@ -217,15 +227,13 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
     ///      the correct merkle proof. Therefore, only tokens that are gained
     ///      after claiming rewards or swapping are auto-compunded.
     function _harvest() internal override returns (TokenAmount[] memory harvested) {
-        uint256 auraBalBalanceBefore = AURABAL.balanceOf(address(this));
-
         // Claim auraBAL from locker
         LOCKER.getReward(address(this));
 
         harvested = new TokenAmount[](1);
         harvested[0].token = address(AURA);
 
-        uint256 auraBalEarned = AURABAL.balanceOf(address(this)).sub(auraBalBalanceBefore);
+        uint256 auraBalEarned = AURABAL.balanceOf(address(this));
         // auraBAL -> BAL/ETH BPT -> WETH -> AURA
         if (auraBalEarned > 0) {
             // Common structs for swaps
@@ -281,13 +289,12 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
         }
     }
 
-    // TODO: Hardcode claim.account = address(this)?
     /// @dev allows claiming of multiple bribes, badger is sent to tree
     /// @notice Hidden hand only allows to claim all tokens at once, not individually.
     ///         Allows claiming any token as it uses the difference in balance
     function claimBribesFromHiddenHand(IRewardDistributor hiddenHandDistributor, IRewardDistributor.Claim[] calldata _claims) external nonReentrant {
         _onlyGovernanceOrStrategist();
-        require(address(bribesProcessor) != address(0), "Bribes processor not set");
+        uint256 numClaims = _claims.length;
 
         uint256 beforeVaultBalance = _getBalance();
         uint256 beforePricePerFullShare = _getPricePerFullShare();
@@ -296,8 +303,8 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
         address hhBribeVault = hiddenHandDistributor.BRIBE_VAULT();
 
         // Track token balances before bribes claim
-        uint256[] memory beforeBalance = new uint256[](_claims.length);
-        for (uint256 i = 0; i < _claims.length; i++) {
+        uint256[] memory beforeBalance = new uint256[](numClaims);
+        for (uint256 i = 0; i < numClaims; ++i) {
             (address token, , , ) = hiddenHandDistributor.rewards(_claims[i].identifier);
             if (token == hhBribeVault) {
                 beforeBalance[i] = address(this).balance;
@@ -314,7 +321,7 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
         bool nonZeroDiff; // Cached value but also to check if we need to notifyProcessor
         // Ultimately it's proof of non-zero which is good enough
 
-        for (uint256 i = 0; i < _claims.length; i++) {
+        for (uint256 i = 0; i < numClaims; ++i) {
             (address token, , , ) = hiddenHandDistributor.rewards(_claims[i].identifier);
 
             if (token == hhBribeVault) {
@@ -328,7 +335,9 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
             } else {
                 uint256 difference = IERC20Upgradeable(token).balanceOf(address(this)).sub(beforeBalance[i]);
                 if (difference > 0) {
-                    nonZeroDiff = true;
+                    if (token != BADGER) {
+                        nonZeroDiff = true;
+                    }
                     _handleRewardTransfer(token, difference);
                 }
             }
@@ -419,15 +428,16 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
 
     /// @dev Send funds to the bribes receiver
     function _sendTokenToBribesProcessor(address token, uint256 amount) internal {
-        // TODO: Too many SLOADs
+        require(address(bribesProcessor) != address(0), "Bribes processor not set");
+
         IERC20Upgradeable(token).safeTransfer(address(bribesProcessor), amount);
         emit RewardsCollected(token, amount);
     }
 
     /// @dev Send the BADGER token to the badgerTree
     function _sendBadgerToTree(uint256 amount) internal {
-        IERC20Upgradeable(BADGER).safeTransfer(BADGER_TREE, amount);
-        _processExtraToken(address(BADGER), amount);
+        IERC20Upgradeable(BADGER).safeTransfer(IVault(vault).badgerTree(), amount);
+        emit TreeDistribution(BADGER, amount, block.number, block.timestamp);
     }
 
     /// PAYABLE FUNCTIONS ///

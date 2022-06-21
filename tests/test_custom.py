@@ -175,12 +175,14 @@ def test_delegation_was_correct(deployer, vault, strategy, want, governance, ran
     chain.sleep(10000 * 13)  # Mine so we get some interest
 
     strategy.manualSetDelegate(randomUser, {"from": governance})
-    assert locker.delegates(strategy) == randomUser
+    assert strategy.getDelegate() == randomUser
 
 
-def test_bribe_claiming_no_processor(strategy, strategist, randomUser):
-    with brownie.reverts("Bribes processor not set"):
-        strategy.claimBribesFromHiddenHand(randomUser, [], {"from": strategist})
+def test_sweep_fails_no_processor(strategy, strategist):
+    weth = interface.IWeth(strategy.WETH())
+
+    with brownie.reverts():
+        strategy.sweepRewards([weth], {"from": strategist})
 
 
 def test_cant_sweep_want(want, strategy, strategist):
