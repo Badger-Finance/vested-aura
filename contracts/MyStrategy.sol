@@ -193,7 +193,7 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
         //NOTE: This probably will always fail unless we have all tokens expired
         require(
             balanceOfPool() == 0 && LOCKER.balanceOf(address(this)) == 0,
-            "You have to wait for unlock or have to manually rebalance out of it"
+            "Tokens still locked"
         );
 
         // Make sure to call prepareWithdrawAll before _withdrawAll
