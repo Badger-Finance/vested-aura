@@ -121,7 +121,7 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
 
         uint256 length = tokens.length;
         for(uint i = 0; i < length; ++i){
-            _sweepRewardToken(token[i]);
+            _sweepRewardToken(tokens[i]);
         }
     }
 
