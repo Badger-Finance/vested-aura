@@ -200,7 +200,7 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
         //NOTE: This probably will always fail unless we have all tokens expired
         require(
             balanceOfPool() == 0 && LOCKER.balanceOf(address(this)) == 0,
-            "You have to wait for unlock or have to manually rebalance out of it"
+            "Tokens still locked"
         );
 
         // Make sure to call prepareWithdrawAll before _withdrawAll
@@ -443,6 +443,7 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
 
     /// @dev Send the BADGER token to the badgerTree
     function _sendBadgerToTree(uint256 amount) internal {
+        // Transfer to tree without taking any fee
         IERC20Upgradeable(BADGER).safeTransfer(IVault(vault).badgerTree(), amount);
         emit TreeDistribution(BADGER, amount, block.number, block.timestamp);
     }
