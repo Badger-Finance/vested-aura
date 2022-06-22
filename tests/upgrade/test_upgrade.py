@@ -66,6 +66,8 @@ def test_check_storage_integrity(strat_proxy, vault_proxy, deployer, proxy_admin
     # Set slippage tolerance
     strat_proxy.setAuraBalToBalEthBptMinOutBps(9500, {"from": gov})
 
+    assert strat_proxy.auraBalToBalEthBptMinOutBps() == 9500
+
     ## Let's do a quick earn and harvest as well
     vault_proxy.earn({"from": gov})
     strat_proxy.harvest({"from": gov})
