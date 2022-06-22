@@ -36,6 +36,8 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
 
     IBribesProcessor public bribesProcessor;
 
+    uint256 public auraBalToBalEthBptMinOutBps;
+
     IBalancerVault public constant BALANCER_VAULT = IBalancerVault(0xBA12222222228d8Ba445958a75a0704d566BF2C8);
 
     address public constant BADGER = 0x3472A5A71965499acd81997a54BBA8D852C6E53d;
@@ -82,6 +84,9 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
 
         // Set Safe Defaults
         withdrawalSafetyCheck = true;
+
+        // For slippage check
+        auraBalToBalEthBptMinOutBps = 9500;
 
         // Process locks on reinvest is best left false as gov can figure out if they need to save that gas
     }
@@ -130,6 +135,13 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
         for(uint i = 0; i < length; ++i){
             _sweepRewardToken(tokens[i]);
         }
+    }
+
+    function setAuraBalToBalEthBptMinOutBps(uint256 _minOutBps) external {
+        _onlyGovernanceOrStrategist();
+        require(_minOutBps <= MAX_BPS, "Invalid minOutBps");
+
+        auraBalToBalEthBptMinOutBps = _minOutBps;
     }
 
    /// ===== View Functions =====
@@ -260,7 +272,8 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
                 amount: auraBalEarned,
                 userData: new bytes(0)
             });
-            uint256 balEthBptEarned = BALANCER_VAULT.swap(singleSwap, fundManagement, 0, type(uint256).max);
+            uint256 minOut = (auraBalEarned * auraBalToBalEthBptMinOutBps) / MAX_BPS;
+            uint256 balEthBptEarned = BALANCER_VAULT.swap(singleSwap, fundManagement, minOut, type(uint256).max);
 
             // Withdraw BAL/ETH BPT -> WETH
             uint256 wethBalanceBefore = WETH.balanceOf(address(this));
