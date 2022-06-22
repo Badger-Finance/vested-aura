@@ -139,6 +139,8 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
 
     function setAuraBalToBalEthBptMinOutBps(uint256 _minOutBps) external {
         _onlyGovernanceOrStrategist();
+        require(_minOutBps <= MAX_BPS, "Invalid minOutBps");
+
         auraBalToBalEthBptMinOutBps = _minOutBps;
     }
 
