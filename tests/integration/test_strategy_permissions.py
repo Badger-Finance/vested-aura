@@ -281,6 +281,8 @@ def test_check_manual_permissions(strategy, want, strategist, reward_distributor
         strategy.setBribesProcessor(rando, {"from": rando})
     with brownie.reverts("onlyGovernanceOrStrategist"):
         strategy.claimBribesFromHiddenHand(rando, [], {"from": rando})
+    with brownie.reverts("onlyGovernanceOrStrategist"):
+        strategy.setAuraBalToBalEthBptMinOutBps(0, {"from": rando})
 
     ## Strategist is bounced for manual ops
     with brownie.reverts():

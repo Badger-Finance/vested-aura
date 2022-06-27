@@ -36,6 +36,8 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
 
     IBribesProcessor public bribesProcessor;
 
+    uint256 public auraBalToBalEthBptMinOutBps;
+
     IBalancerVault public constant BALANCER_VAULT = IBalancerVault(0xBA12222222228d8Ba445958a75a0704d566BF2C8);
 
     address public constant BADGER = 0x3472A5A71965499acd81997a54BBA8D852C6E53d;
@@ -83,6 +85,9 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
         // Set Safe Defaults
         withdrawalSafetyCheck = true;
 
+        // For slippage check
+        auraBalToBalEthBptMinOutBps = 9500;
+
         // Process locks on reinvest is best left false as gov can figure out if they need to save that gas
     }
 
@@ -117,20 +122,26 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
     /// @notice Only not protected, moves the whole amount using _handleRewardTransfer
     /// @notice because token paths are hardcoded, this function is safe to be called by anyone
     /// @notice Will not notify the BRIBES_PROCESSOR as this could be triggered outside bribes
-    function sweepRewardToken(address token) public nonReentrant {
+    function sweepRewardToken(address token) external nonReentrant {
         _onlyGovernanceOrStrategist();
-        _onlyNotProtectedTokens(token);
-
-        uint256 toSend = IERC20Upgradeable(token).balanceOf(address(this));
-        _handleRewardTransfer(token, toSend);
+        _sweepRewardToken(token);
     }
 
     /// @dev Bulk function for sweepRewardToken
-    function sweepRewards(address[] calldata tokens) external {
+    function sweepRewards(address[] calldata tokens) external nonReentrant {
+        _onlyGovernanceOrStrategist();
+
         uint256 length = tokens.length;
         for(uint i = 0; i < length; ++i){
-            sweepRewardToken(tokens[i]);
+            _sweepRewardToken(tokens[i]);
         }
+    }
+
+    function setAuraBalToBalEthBptMinOutBps(uint256 _minOutBps) external {
+        _onlyGovernanceOrStrategist();
+        require(_minOutBps <= MAX_BPS, "Invalid minOutBps");
+
+        auraBalToBalEthBptMinOutBps = _minOutBps;
     }
 
    /// ===== View Functions =====
@@ -261,7 +272,8 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
                 amount: auraBalEarned,
                 userData: new bytes(0)
             });
-            uint256 balEthBptEarned = BALANCER_VAULT.swap(singleSwap, fundManagement, 0, type(uint256).max);
+            uint256 minOut = (auraBalEarned * auraBalToBalEthBptMinOutBps) / MAX_BPS;
+            uint256 balEthBptEarned = BALANCER_VAULT.swap(singleSwap, fundManagement, minOut, type(uint256).max);
 
             // Withdraw BAL/ETH BPT -> WETH
             uint256 wethBalanceBefore = WETH.balanceOf(address(this));
@@ -385,7 +397,7 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
 
     /// @dev process all locks, to redeem
     /// @notice No Access Control Checks, anyone can unlock an expired lock
-    function manualProcessExpiredLocks() public whenNotPaused {
+    function manualProcessExpiredLocks() public {
         // Unlock vlAURA that is expired and redeem AURA back to this strat
         LOCKER.processExpiredLocks(false);
     }
@@ -446,6 +458,13 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
         // Transfer to tree without taking any fee
         IERC20Upgradeable(BADGER).safeTransfer(IVault(vault).badgerTree(), amount);
         emit TreeDistribution(BADGER, amount, block.number, block.timestamp);
+    }
+
+    function _sweepRewardToken(address token) internal {
+        _onlyNotProtectedTokens(token);
+
+        uint256 toSend = IERC20Upgradeable(token).balanceOf(address(this));
+        _handleRewardTransfer(token, toSend);
     }
 
     /// PAYABLE FUNCTIONS ///

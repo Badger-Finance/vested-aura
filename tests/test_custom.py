@@ -193,3 +193,8 @@ def test_cant_sweep_want(want, strategy, strategist):
 def test_cant_take_eth(deployer, strategy):
     with brownie.reverts("onlyWhileClaiming"):
         accounts.at(deployer).transfer(strategy, "1 ether")
+
+
+def test_can_set_slippage(strategy, strategist):
+    strategy.setAuraBalToBalEthBptMinOutBps(10, {"from": strategist})
+    assert strategy.auraBalToBalEthBptMinOutBps() == 10
