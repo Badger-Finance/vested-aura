@@ -44,6 +44,10 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
 
     IAuraLocker public constant LOCKER = IAuraLocker(0x3Fa73f1E5d8A792C80F426fc8F84FBF7Ce9bBCAC);
 
+    // Currently set to the politican multisig that could be used to account for bribe recycling.  Feel free to change
+    // to another Badger Multisig
+    address public constant TREASURY = 0x6F76C6A1059093E21D8B1C13C4e20D8335e2909F;
+
     IERC20Upgradeable public constant BAL = IERC20Upgradeable(0xba100000625a3754423978a60c9317c58a424e3D);
     IERC20Upgradeable public constant WETH = IERC20Upgradeable(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
     IERC20Upgradeable public constant AURA = IERC20Upgradeable(0xC0c293ce456fF0ED870ADd98a0828Dd4d2903DBF);
@@ -433,7 +437,7 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
     function _handleRewardTransfer(address token, uint256 amount) internal {
         // NOTE: BADGER is emitted through the tree
         if (token == BADGER) {
-            _sendBadgerToTree(amount);
+            _sendBadgerToTreasury(amount);
         } else {
             // NOTE: All other tokens are sent to bribes processor
             _sendTokenToBribesProcessor(token, amount);
@@ -465,6 +469,16 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
 
         uint256 toSend = IERC20Upgradeable(token).balanceOf(address(this));
         _handleRewardTransfer(token, toSend);
+    }
+
+    /// @dev Send the BADGER token to the badgerTree
+    function _sendBadgerToTreasury(uint256 amount) internal {
+        // Transfer to tree without taking any fee
+        IERC20Upgradeable(BADGER).safeTransfer(TREASURY, amount);
+        // Maybe we want a new event here for recycled bribes, maybe not. I can't answer that quesiton alone
+
+        // We do not need this line below anymore
+        ///// emit TreeDistribution(BADGER, amount, block.number, block.timestamp);
     }
 
     /// PAYABLE FUNCTIONS ///
