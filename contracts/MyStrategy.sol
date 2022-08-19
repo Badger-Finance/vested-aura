@@ -56,6 +56,15 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
 
     uint256 private constant BPT_WETH_INDEX = 1;
 
+    // Bribe Token -> Bribe Recepient 
+    mapping (address => address) public bribesRedirections;
+    // Bribe Recepient -> Redirection Fee
+    mapping (address => uint256) public redirectionFees;
+    // Bribe distribution split - upper cap
+    mapping (address => uint256) public upperSplitCaps;
+    // Bribe distribution split - lower cap
+    mapping (address => uint256) public lowerSplitCaps;
+
     event TreeDistribution(
         address indexed token,
         uint256 amount,
@@ -63,6 +72,13 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
         uint256 timestamp
     );
     event RewardsCollected(address token, uint256 amount);
+    event RedirectionFee(
+        address indexed destination,
+        address indexed token,
+        uint256 amount,
+        uint256 indexed blockNumber,
+        uint256 timestamp
+    );
 
     /// @dev Initialize the Strategy with security settings as well as tokens
     /// @notice Proxies will set any non constant variable you declare as default value
@@ -153,7 +169,7 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
 
     /// @dev Specify the version of the Strategy, for upgrades
     function version() external pure returns (string memory) {
-        return "1.1";
+        return "1.2";
     }
 
     /// @dev Does this function require `tend` to be called?
@@ -311,7 +327,11 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
     /// @dev allows claiming of multiple bribes, badger is sent to tree
     /// @notice Hidden hand only allows to claim all tokens at once, not individually.
     ///         Allows claiming any token as it uses the difference in balance
-    function claimBribesFromHiddenHand(IRewardDistributor hiddenHandDistributor, IRewardDistributor.Claim[] calldata _claims) external nonReentrant {
+    function claimBribesFromHiddenHand(
+        IRewardDistributor hiddenHandDistributor,
+        IRewardDistributor.Claim[] calldata _claims,
+        uint256[] calldata _splitPercentages
+    ) external nonReentrant {
         _onlyGovernanceOrStrategist();
         uint256 numClaims = _claims.length;
 
@@ -349,15 +369,28 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
                 if (difference > 0) {
                     IWeth(address(WETH)).deposit{value: difference}();
                     nonZeroDiff = true;
-                    _handleRewardTransfer(address(WETH), difference);
+                    _handleRewardTransfer(address(WETH), address(0), difference);
                 }
             } else {
                 uint256 difference = IERC20Upgradeable(token).balanceOf(address(this)).sub(beforeBalance[i]);
+                address recepient = bribesRedirections[token];
+                uint256 split = _splitPercentages[i];
+                require(split <= upperSplitCaps[token], "split out of upper bound");
+                require(split >= lowerSplitCaps[token], "split out of lower bound");
+
                 if (difference > 0) {
-                    if (token != BADGER) {
+                    if (recepient == address(0)) {
                         nonZeroDiff = true;
+                        _handleRewardTransfer(token, recepient, difference);
+                    } else if (recepient != address(0) && split == MAX_BPS) {
+                        _handleRewardTransfer(token, recepient, difference);
+                    } else {
+                        nonZeroDiff = true;
+                        uint256 toRecepient = difference.mul(split).div(MAX_BPS);
+                        uint256 toProcessor = difference.sub(toRecepient);
+                        _handleRewardTransfer(token, recepient, toRecepient);
+                        _handleRewardTransfer(token, address(0), toProcessor);
                     }
-                    _handleRewardTransfer(token, difference);
                 }
             }
         }
@@ -430,12 +463,12 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
     }
 
     /// *** Handling of rewards ***
-    function _handleRewardTransfer(address token, uint256 amount) internal {
-        // NOTE: BADGER is emitted through the tree
-        if (token == BADGER) {
-            _sendBadgerToTree(amount);
+    function _handleRewardTransfer(address token, address recepient, uint256 amount) internal {
+        // NOTE: Tokens with an assigned recepient are sent there
+        if (recepient != address(0)) {
+            _sendTokenToBriber(token, recepient, amount);
+        // NOTE: All other tokens are sent to the bribes processor
         } else {
-            // NOTE: All other tokens are sent to bribes processor
             _sendTokenToBribesProcessor(token, amount);
         }
     }
@@ -453,18 +486,32 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
         emit RewardsCollected(token, amount);
     }
 
-    /// @dev Send the BADGER token to the badgerTree
-    function _sendBadgerToTree(uint256 amount) internal {
-        // Transfer to tree without taking any fee
-        IERC20Upgradeable(BADGER).safeTransfer(IVault(vault).badgerTree(), amount);
-        emit TreeDistribution(BADGER, amount, block.number, block.timestamp);
+    /// @dev Takes a fee on the token and sends remaining to the given briber destination
+    function _sendTokenToBriber(address token, address recepient, uint256 amount) internal {
+        IERC20Upgradeable cachedToken = IERC20Upgradeable(token);
+        address cachedRecepient = recepient;
+
+        // Process redirection fee
+        uint256 redirectionFee = amount.mul(redirectionFees[cachedRecepient]).div(MAX_BPS);
+        cachedToken.safeTransfer(IVault(vault).treasury(), redirectionFee);
+        emit RedirectionFee(
+            IVault(vault).treasury(),
+            address(cachedToken),
+            redirectionFee,
+            block.number,
+            block.timestamp
+        );
+
+        // Send remaining to bribe recepient
+        uint256 tokenBalance = cachedToken.balanceOf(address(this));
+        cachedToken.safeTransfer(cachedRecepient, tokenBalance);
     }
 
     function _sweepRewardToken(address token) internal {
         _onlyNotProtectedTokens(token);
 
         uint256 toSend = IERC20Upgradeable(token).balanceOf(address(this));
-        _handleRewardTransfer(token, toSend);
+        _handleRewardTransfer(token, address(0), toSend);
     }
 
     /// PAYABLE FUNCTIONS ///
