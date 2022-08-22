@@ -108,6 +108,46 @@ def test_strategy_action_permissions(
             with brownie.reverts("onlyGovernanceOrStrategist"):
                 vault.sweepExtraToken(vault, {"from": actor})
 
+    # setRedirectionToken
+    for actor in actorsToCheck:
+        if actor == strategy.governance():
+            strategy.setRedirectionToken(want, deployer, 1500, {"from": actor})
+        else:
+            with brownie.reverts("onlyGovernance"):
+                strategy.setRedirectionToken(want, deployer, 1500, {"from": actor})
+
+    # setBribesProcessor
+    for actor in actorsToCheck:
+        if actor == strategy.governance():
+            strategy.setBribesProcessor(accounts[5], {"from": actor})
+        else:
+            with brownie.reverts("onlyGovernance"):
+                strategy.setBribesProcessor(accounts[5], {"from": actor})
+
+    # setProcessLocksOnReinvest
+    for actor in actorsToCheck:
+        if actor == strategy.governance():
+            strategy.setProcessLocksOnReinvest(False, {"from": actor})
+        else:
+            with brownie.reverts("onlyGovernance"):
+                strategy.setProcessLocksOnReinvest(False, {"from": actor})
+
+    # setWithdrawalSafetyCheck
+    for actor in actorsToCheck:
+        if actor == strategy.governance():
+            strategy.setWithdrawalSafetyCheck(False, {"from": actor})
+        else:
+            with brownie.reverts("onlyGovernance"):
+                strategy.setWithdrawalSafetyCheck(False, {"from": actor})
+
+    # setWithdrawalSafetyCheck
+    for actor in actorsToCheck:
+        if actor == strategy.governance():
+            strategy.manualSetDelegate(deployer, {"from": actor})
+        else:
+            with brownie.reverts("onlyGovernance"):
+                strategy.manualSetDelegate(deployer, {"from": actor})
+
 
 def test_strategy_pausing_permissions(deployer, vault, strategy, want, keeper):
     # Setup
