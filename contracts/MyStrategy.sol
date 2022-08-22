@@ -57,7 +57,7 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
     uint256 private constant BPT_WETH_INDEX = 1;
 
     // Bribe Token -> Bribe Recepient 
-    mapping (address => address) public bribesRedirections;
+    mapping (address => address) public bribesRedirectionPaths;
     // Bribe Recepient -> Redirection Fee
     mapping (address => uint256) public redirectionFees;
 
@@ -112,22 +112,43 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
         LOCKER.delegate(delegate);
     }
 
-    ///@dev Should we check if the amount requested is more than what we can return on withdrawal?
+    /// @dev Should we check if the amount requested is more than what we can return on withdrawal?
     function setWithdrawalSafetyCheck(bool newWithdrawalSafetyCheck) external {
         _onlyGovernance();
         withdrawalSafetyCheck = newWithdrawalSafetyCheck;
     }
 
-    ///@dev Should we processExpiredLocks during reinvest?
+    /// @dev Should we processExpiredLocks during reinvest?
     function setProcessLocksOnReinvest(bool newProcessLocksOnReinvest) external {
         _onlyGovernance();
         processLocksOnReinvest = newProcessLocksOnReinvest;
     }
 
-     ///@dev Change the contract that handles bribes
+     /// @dev Change the contract that handles bribes
     function setBribesProcessor(IBribesProcessor newBribesProcessor) external {
         _onlyGovernance();
         bribesProcessor = newBribesProcessor;
+    }
+
+     /// @dev Sets the redirection path for a given token as well as the redirection fee to 
+     ///     processed for this recepient.
+     /// @notice There can only be one recepient per token, calling this function for the same
+     /// @notice token will replace the previous one.
+     /// @notice Adding a token to this mapping means that the full amount (minus the fee) of this
+     /// @notice token, claimed from HiddenHands, will be transfer to this recepient.
+     /// @param token Bribe token to redirect
+     /// @param recepeint Address where redirected token will be transferred
+     /// @param redirectionFee Fee to be processed for the redirection service, different per recepient
+    function setRedirectionToken(address token, address recepient, uint256 redirectionFee) external {
+        _onlyGovernance();
+        require(token != address(0), "Invalid token address");
+        require(recepient != address(0), "Invalid recepient address");
+        require(redirectionFee <= MAX_BPS, "Invalid redirection fee");
+
+        // Sets redirection path for a given token
+        bribesRedirectionPaths[token] = recepient;
+        // Sets redirection fees for a given recepient
+        redirectionFees[recepient] = redirectionFee;
     }
 
     /// @dev Function to move rewards that are not protected
@@ -365,7 +386,7 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
                 }
             } else {
                 uint256 difference = IERC20Upgradeable(token).balanceOf(address(this)).sub(beforeBalance[i]);
-                address recepient = bribesRedirections[token];
+                address recepient = bribesRedirectionPaths[token];
                 if (difference > 0) {
                     if (recepient == address(0)) {
                         nonZeroDiff = true;
@@ -470,21 +491,25 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
     function _sendTokenToBriber(address token, address recepient, uint256 amount) internal {
         IERC20Upgradeable cachedToken = IERC20Upgradeable(token);
         address cachedRecepient = recepient;
+        uint256 cachedAmount = amount;
 
         // Process redirection fee
-        uint256 redirectionFee = amount.mul(redirectionFees[cachedRecepient]).div(MAX_BPS);
-        cachedToken.safeTransfer(IVault(vault).treasury(), redirectionFee);
-        emit RedirectionFee(
-            IVault(vault).treasury(),
-            address(cachedToken),
-            redirectionFee,
-            block.number,
-            block.timestamp
-        );
+        uint256 redirectionFee = cachedAmount.mul(redirectionFees[cachedRecepient]).div(MAX_BPS);
+        if (redirectionFee > 0) {
+            cachedToken.safeTransfer(IVault(vault).treasury(), redirectionFee);
+            emit RedirectionFee(
+                IVault(vault).treasury(),
+                address(cachedToken),
+                redirectionFee,
+                block.number,
+                block.timestamp
+            );
+        }
 
         // Send remaining to bribe recepient
-        uint256 tokenBalance = cachedToken.balanceOf(address(this));
-        cachedToken.safeTransfer(cachedRecepient, tokenBalance);
+        // NOTE: Calculating instead of checking balance since there could have been an 
+        // existing balance on the contract beforehand
+        cachedToken.safeTransfer(cachedRecepient, cachedAmount.sub(redirectionFee));
     }
 
     function _sweepRewardToken(address token) internal {
