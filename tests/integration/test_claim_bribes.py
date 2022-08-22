@@ -217,6 +217,18 @@ def test_claim_bribes_with_redirection(
     assert event["amount"] == expected_fee_amount
     assert gno.balanceOf(treasury) == expected_fee_amount
 
+    # Check that the TokenRedirection event was emitted
+    event = claim_tx.events["TokenRedirection"]
+    assert len(event) == 2
+    # Confirm BADGER event
+    assert event[0]["destination"] == treasury
+    assert event[0]["token"] == badger
+    assert event[0]["amount"] == badger_amount
+    # Confirm GNO event
+    assert event[1]["destination"] == gno_recepient
+    assert event[1]["token"] == gno
+    assert event[1]["amount"] == gno_recepient_balance_before + gno_amount - expected_fee_amount
+
     # Check accounting
     assert badger.balanceOf(treasury) == badger_recepient_balance_before + badger_amount
     assert gno.balanceOf(gno_recepient) == gno_recepient_balance_before + gno_amount - expected_fee_amount
