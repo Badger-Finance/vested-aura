@@ -4,8 +4,7 @@ from helpers.constants import AddressZero
 from brownie import (
     accounts,
     interface,
-    web3,
-    MockBribesProcessor,
+    web3
 )
 
 # Tokens
@@ -42,13 +41,6 @@ def usdc(deployer):
     usdc = interface.IERC20Detailed(USDC)
     usdc.transfer(deployer, 100e8, {"from": USDC_WHALE})
     return usdc
-
-
-@pytest.fixture
-def bribes_processor(deployer, strategy, governance):
-    processor = MockBribesProcessor.deploy({"from": deployer})
-    strategy.setBribesProcessor(processor, {"from": governance})
-    return processor
 
 
 @pytest.fixture(autouse=True)

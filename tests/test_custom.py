@@ -1,5 +1,5 @@
 import brownie
-from brownie import *
+from brownie import interface, chain, accounts
 from helpers.constants import MaxUint256
 from helpers.SnapshotManager import SnapshotManager
 from helpers.time import days
@@ -10,6 +10,8 @@ from helpers.time import days
   See test_strategy_permissions, for tests at the permissions level
 """
 
+CVX_FXS = "0xFEEf77d3f69374f66429C91d732A244f074bdf74"
+CVX_FXS_WHALE = "0xd658A338613198204DCa1143Ac3F01A722b5d94A"
 
 def test_after_wait_withdrawSome_unlocks_for_caller(setup_strat, want, vault, deployer):
     ## Try to withdraw all, fail because locked
@@ -188,6 +190,19 @@ def test_sweep_fails_no_processor(strategy, strategist):
 def test_cant_sweep_want(want, strategy, strategist):
     with brownie.reverts("_onlyNotProtectedTokens"):
         strategy.sweepRewards([want], {"from": strategist})
+
+
+def test_sweep_rewards(strategy, strategist, bribes_processor):
+    # Transfer exra reward tokens to the strategy
+    amount = 100e18
+    cvxFxs = interface.IERC20Detailed(CVX_FXS)
+    whale = accounts.at(CVX_FXS_WHALE, force=True)
+    cvxFxs.transfer(strategy, amount, {"from": whale})
+
+    # A non protected token can be swept
+    balance_processor_before = cvxFxs.balanceOf(bribes_processor)
+    strategy.sweepRewardToken(cvxFxs, {"from": strategist})
+    assert cvxFxs.balanceOf(bribes_processor) == balance_processor_before + amount
 
 
 def test_cant_take_eth(deployer, strategy):
