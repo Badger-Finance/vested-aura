@@ -21,7 +21,12 @@ import {IWeth} from "../interfaces/weth/IWeth.sol";
  * Version 1:
  * - Basic version
  * Version 1.1:
- * Fixes from CodeArena Contest
+ * - Fixes from CodeArena Contest
+ * Version 1.2:
+ * - Removes hardcoded redirection path for BADGER to the BadgerTree
+ * - Introduces bribes redirection paths for certain bribe tokens
+ * - Introduces the bribe redirection fee and processing
+ * - Setter function for the above
  */
 
 contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
@@ -39,8 +44,6 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
     uint256 public auraBalToBalEthBptMinOutBps;
 
     IBalancerVault public constant BALANCER_VAULT = IBalancerVault(0xBA12222222228d8Ba445958a75a0704d566BF2C8);
-
-    address public constant BADGER = 0x3472A5A71965499acd81997a54BBA8D852C6E53d;
 
     IAuraLocker public constant LOCKER = IAuraLocker(0x3Fa73f1E5d8A792C80F426fc8F84FBF7Ce9bBCAC);
 
