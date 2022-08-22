@@ -60,10 +60,6 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
     mapping (address => address) public bribesRedirections;
     // Bribe Recepient -> Redirection Fee
     mapping (address => uint256) public redirectionFees;
-    // Bribe distribution split - upper cap
-    mapping (address => uint256) public upperSplitCaps;
-    // Bribe distribution split - lower cap
-    mapping (address => uint256) public lowerSplitCaps;
 
     event TreeDistribution(
         address indexed token,
@@ -327,14 +323,9 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
     /// @dev allows claiming of multiple bribes
     /// @notice Hidden hand only allows to claim all tokens at once, not individually.
     ///         Allows claiming any token as it uses the difference in balance
-    function claimBribesFromHiddenHand(
-        IRewardDistributor hiddenHandDistributor,
-        IRewardDistributor.Claim[] calldata _claims,
-        uint256[] calldata _splitPercentages
-    ) external nonReentrant {
+    function claimBribesFromHiddenHand(IRewardDistributor hiddenHandDistributor, IRewardDistributor.Claim[] calldata _claims) external nonReentrant {
         _onlyGovernanceOrStrategist();
         uint256 numClaims = _claims.length;
-        require(numClaims == _splitPercentages.length, "Arrays length mismatch");
 
         uint256 beforeVaultBalance = _getBalance();
         uint256 beforePricePerFullShare = _getPricePerFullShare();
@@ -375,23 +366,11 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
             } else {
                 uint256 difference = IERC20Upgradeable(token).balanceOf(address(this)).sub(beforeBalance[i]);
                 address recepient = bribesRedirections[token];
-                uint256 split = _splitPercentages[i];
-                require(split <= upperSplitCaps[token], "Split out of upper cap");
-                require(split >= lowerSplitCaps[token], "Split out of lower cap");
-
                 if (difference > 0) {
                     if (recepient == address(0)) {
                         nonZeroDiff = true;
-                        _handleRewardTransfer(token, recepient, difference);
-                    } else if (recepient != address(0) && split != MAX_BPS) {
-                        nonZeroDiff = true;
-                        uint256 toRecepient = difference.mul(split).div(MAX_BPS);
-                        uint256 toProcessor = difference.sub(toRecepient);
-                        _handleRewardTransfer(token, recepient, toRecepient);
-                        _handleRewardTransfer(token, address(0), toProcessor);
-                    } else {
-                        _handleRewardTransfer(token, recepient, difference);
                     }
+                    _handleRewardTransfer(token, recepient, difference);
                 }
             }
         }
