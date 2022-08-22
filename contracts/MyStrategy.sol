@@ -135,7 +135,7 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
     }
 
     /// @dev Function to move rewards that are not protected
-    /// @notice Only not protected, moves the whole amount using _handleRewardTransfer
+    /// @notice Only not protected, moves the whole amount using _sendTokenToBribesProcessor
     /// @notice because token paths are hardcoded, this function is safe to be called by anyone
     /// @notice Will not notify the BRIBES_PROCESSOR as this could be triggered outside bribes
     function sweepRewardToken(address token) external nonReentrant {
@@ -324,7 +324,7 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
         }
     }
 
-    /// @dev allows claiming of multiple bribes, badger is sent to tree
+    /// @dev allows claiming of multiple bribes
     /// @notice Hidden hand only allows to claim all tokens at once, not individually.
     ///         Allows claiming any token as it uses the difference in balance
     function claimBribesFromHiddenHand(
@@ -334,6 +334,7 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
     ) external nonReentrant {
         _onlyGovernanceOrStrategist();
         uint256 numClaims = _claims.length;
+        require(numClaims == _splitPercentages.length, "Arrays length mismatch");
 
         uint256 beforeVaultBalance = _getBalance();
         uint256 beforePricePerFullShare = _getPricePerFullShare();
@@ -375,21 +376,21 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
                 uint256 difference = IERC20Upgradeable(token).balanceOf(address(this)).sub(beforeBalance[i]);
                 address recepient = bribesRedirections[token];
                 uint256 split = _splitPercentages[i];
-                require(split <= upperSplitCaps[token], "split out of upper bound");
-                require(split >= lowerSplitCaps[token], "split out of lower bound");
+                require(split <= upperSplitCaps[token], "Split out of upper cap");
+                require(split >= lowerSplitCaps[token], "Split out of lower cap");
 
                 if (difference > 0) {
                     if (recepient == address(0)) {
                         nonZeroDiff = true;
                         _handleRewardTransfer(token, recepient, difference);
-                    } else if (recepient != address(0) && split == MAX_BPS) {
-                        _handleRewardTransfer(token, recepient, difference);
-                    } else {
+                    } else if (recepient != address(0) && split != MAX_BPS) {
                         nonZeroDiff = true;
                         uint256 toRecepient = difference.mul(split).div(MAX_BPS);
                         uint256 toProcessor = difference.sub(toRecepient);
                         _handleRewardTransfer(token, recepient, toRecepient);
                         _handleRewardTransfer(token, address(0), toProcessor);
+                    } else {
+                        _handleRewardTransfer(token, recepient, difference);
                     }
                 }
             }
@@ -511,7 +512,7 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
         _onlyNotProtectedTokens(token);
 
         uint256 toSend = IERC20Upgradeable(token).balanceOf(address(this));
-        _handleRewardTransfer(token, address(0), toSend);
+        _sendTokenToBribesProcessor(token, toSend);
     }
 
     /// PAYABLE FUNCTIONS ///
