@@ -78,6 +78,13 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
         uint256 indexed blockNumber,
         uint256 timestamp
     );
+    event TokenRedirection(
+        address indexed destination,
+        address indexed token,
+        uint256 amount,
+        uint256 indexed blockNumber,
+        uint256 timestamp
+    );
 
     /// @dev Initialize the Strategy with security settings as well as tokens
     /// @notice Proxies will set any non constant variable you declare as default value
@@ -492,17 +499,13 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
 
     /// @dev Takes a fee on the token and sends remaining to the given briber destination
     function _sendTokenToBriber(address token, address recepient, uint256 amount) internal {
-        IERC20Upgradeable cachedToken = IERC20Upgradeable(token);
-        address cachedRecepient = recepient;
-        uint256 cachedAmount = amount;
-
         // Process redirection fee
-        uint256 redirectionFee = cachedAmount.mul(redirectionFees[cachedRecepient]).div(MAX_BPS);
+        uint256 redirectionFee = amount.mul(redirectionFees[recepient]).div(MAX_BPS);
         if (redirectionFee > 0) {
-            cachedToken.safeTransfer(IVault(vault).treasury(), redirectionFee);
+            IERC20Upgradeable(token).safeTransfer(IVault(vault).treasury(), redirectionFee);
             emit RedirectionFee(
                 IVault(vault).treasury(),
-                address(cachedToken),
+                token,
                 redirectionFee,
                 block.number,
                 block.timestamp
@@ -512,7 +515,14 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
         // Send remaining to bribe recepient
         // NOTE: Calculating instead of checking balance since there could have been an 
         // existing balance on the contract beforehand
-        cachedToken.safeTransfer(cachedRecepient, cachedAmount.sub(redirectionFee));
+        IERC20Upgradeable(token).safeTransfer(recepient, amount.sub(redirectionFee));
+        emit TokenRedirection(
+            recepient,
+            token,
+            amount.sub(redirectionFee),
+            block.number,
+            block.timestamp
+        );
     }
 
     function _sweepRewardToken(address token) internal {
