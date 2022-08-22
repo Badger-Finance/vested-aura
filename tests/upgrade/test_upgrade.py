@@ -37,9 +37,6 @@ def test_check_storage_integrity(strat_proxy, vault_proxy, deployer, proxy_admin
     old_processLocksOnReinvest = strat_proxy.processLocksOnReinvest()
     old_bribesProcessor = strat_proxy.bribesProcessor()
     old_auraBalToBalEthBptMinOutBps = strat_proxy.auraBalToBalEthBptMinOutBps()
-    
-    with brownie.reverts():
-        strat_proxy.auraBalToBalEthBptMinOutBps()
 
     logic = MyStrategy.deploy({"from": deployer})
 
