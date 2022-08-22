@@ -26,7 +26,7 @@ import {IWeth} from "../interfaces/weth/IWeth.sol";
  * - Removes hardcoded redirection path for BADGER to the BadgerTree
  * - Introduces bribes redirection paths for certain bribe tokens
  * - Introduces the bribe redirection fee and processing
- * - Setter function for the above
+ * - Introduces a setter function for the above
  */
 
 contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
@@ -141,7 +141,7 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
     }
 
      /// @dev Sets the redirection path for a given token as well as the redirection fee to 
-     ///     processed for this recepient.
+     ///      process for this recepient.
      /// @notice There can only be one recepient per token, calling this function for the same
      /// @notice token will replace the previous one.
      /// @notice Adding a token to this mapping means that the full amount (minus the fee) of this
@@ -497,7 +497,7 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
         emit RewardsCollected(token, amount);
     }
 
-    /// @dev Takes a fee on the token and sends remaining to the given briber destination
+    /// @dev Takes a fee on the token and sends remaining to the given briber recepient
     function _sendTokenToBriber(address token, address recepient, uint256 amount) internal {
         // Process redirection fee
         uint256 redirectionFee = amount.mul(redirectionFees[recepient]).div(MAX_BPS);
