@@ -137,7 +137,7 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
      /// @notice Adding a token to this mapping means that the full amount (minus the fee) of this
      /// @notice token, claimed from HiddenHands, will be transfer to this recepient.
      /// @param token Bribe token to redirect
-     /// @param recepeint Address where redirected token will be transferred
+     /// @param recepient Address where redirected token will be transferred
      /// @param redirectionFee Fee to be processed for the redirection service, different per recepient
     function setRedirectionToken(address token, address recepient, uint256 redirectionFee) external {
         _onlyGovernance();
