@@ -156,12 +156,12 @@ def test_claim_bribes_with_redirection(
     # Setting BADGER to be redirected to deployer with a fee
     strategy.setRedirectionToken(badger, deployer, 1500, {"from": governance})
     assert strategy.bribesRedirectionPaths(badger) == deployer
-    assert strategy.redirectionFees(deployer) == 1500
+    assert strategy.redirectionFees(badger) == 1500
 
     # Calling again for BADGER changes settings to treausury as recepeint and 0 fee
     strategy.setRedirectionToken(badger, treasury, 0, {"from": governance})
     assert strategy.bribesRedirectionPaths(badger) == treasury
-    assert strategy.redirectionFees(treasury) == 0
+    assert strategy.redirectionFees(badger) == 0
 
     # Test invalid settings
     with brownie.reverts("Invalid token address"):
@@ -174,7 +174,7 @@ def test_claim_bribes_with_redirection(
     # Setting GNO to be redirected to its intended recepient with a 15% fee
     strategy.setRedirectionToken(gno, gno_recepient, 1500, {"from": governance})
     assert strategy.bribesRedirectionPaths(gno) == gno_recepient
-    assert strategy.redirectionFees(gno_recepient) == 1500
+    assert strategy.redirectionFees(gno) == 1500
 
     # NOTE: USDC is not redirected
 
@@ -203,7 +203,7 @@ def test_claim_bribes_with_redirection(
     # Check that redirection fee was processed
     event = claim_tx.events["RedirectionFee"]
     assert len(event) == 1 # Only GNO has fees assigned to it
-    expected_fee_amount = gno_amount * strategy.redirectionFees(gno_recepient) / 10000
+    expected_fee_amount = gno_amount * strategy.redirectionFees(gno) / 10000
     assert event["destination"] == treasury
     assert event["token"] == gno
     assert event["amount"] == expected_fee_amount

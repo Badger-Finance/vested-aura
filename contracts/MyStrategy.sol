@@ -61,7 +61,7 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
 
     // Bribe Token -> Bribe Recepient 
     mapping (address => address) public bribesRedirectionPaths;
-    // Bribe Recepient -> Redirection Fee
+    // Bribe Token -> Redirection Fee
     mapping (address => uint256) public redirectionFees;
 
     event TreeDistribution(
@@ -141,14 +141,14 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
     }
 
      /// @dev Sets the redirection path for a given token as well as the redirection fee to 
-     ///      process for this recepient.
+     ///      process for it.
      /// @notice There can only be one recepient per token, calling this function for the same
      /// @notice token will replace the previous one.
      /// @notice Adding a token to this mapping means that the full amount (minus the fee) of this
      /// @notice token, claimed from HiddenHands, will be transfer to this recepient.
      /// @param token Bribe token to redirect
      /// @param recepient Address where redirected token will be transferred
-     /// @param redirectionFee Fee to be processed for the redirection service, different per recepient
+     /// @param redirectionFee Fee to be processed for the redirection service, different per token
     function setRedirectionToken(address token, address recepient, uint256 redirectionFee) external {
         _onlyGovernance();
         require(token != address(0), "Invalid token address");
@@ -157,12 +157,12 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
 
         // Sets redirection path for a given token
         bribesRedirectionPaths[token] = recepient;
-        // Sets redirection fees for a given recepient
-        redirectionFees[recepient] = redirectionFee;
+        // Sets redirection fees for a given token
+        redirectionFees[token] = redirectionFee;
     }
 
     /// @dev Function to move rewards that are not protected
-    /// @notice Only not protected, moves the whole amount using _sendTokenToBribesProcessor
+    /// @notice Only not protected, moves the whole amount using _handleRewardTransfer
     /// @notice because token paths are hardcoded, this function is safe to be called by anyone
     /// @notice Will not notify the BRIBES_PROCESSOR as this could be triggered outside bribes
     function sweepRewardToken(address token) external nonReentrant {
@@ -386,17 +386,19 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
         for (uint256 i = 0; i < numClaims; ++i) {
             (address token, , , ) = hiddenHandDistributor.rewards(_claims[i].identifier);
 
+            address recepient = bribesRedirectionPaths[token];
             if (token == hhBribeVault) {
                 // ETH
                 uint256 difference = address(this).balance.sub(beforeBalance[i]);
                 if (difference > 0) {
                     IWeth(address(WETH)).deposit{value: difference}();
-                    nonZeroDiff = true;
-                    _handleRewardTransfer(address(WETH), address(0), difference);
+                    if (recepient == address(0)) {
+                        nonZeroDiff = true;
+                    }
+                    _handleRewardTransfer(address(WETH), recepient, difference);
                 }
             } else {
                 uint256 difference = IERC20Upgradeable(token).balanceOf(address(this)).sub(beforeBalance[i]);
-                address recepient = bribesRedirectionPaths[token];
                 if (difference > 0) {
                     if (recepient == address(0)) {
                         nonZeroDiff = true;
@@ -500,7 +502,7 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
     /// @dev Takes a fee on the token and sends remaining to the given briber recepient
     function _sendTokenToBriber(address token, address recepient, uint256 amount) internal {
         // Process redirection fee
-        uint256 redirectionFee = amount.mul(redirectionFees[recepient]).div(MAX_BPS);
+        uint256 redirectionFee = amount.mul(redirectionFees[token]).div(MAX_BPS);
         if (redirectionFee > 0) {
             IERC20Upgradeable(token).safeTransfer(IVault(vault).treasury(), redirectionFee);
             emit RedirectionFee(
@@ -514,22 +516,26 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
 
         // Send remaining to bribe recepient
         // NOTE: Calculating instead of checking balance since there could have been an 
-        // existing balance on the contract beforehand
-        IERC20Upgradeable(token).safeTransfer(recepient, amount.sub(redirectionFee));
-        emit TokenRedirection(
-            recepient,
-            token,
-            amount.sub(redirectionFee),
-            block.number,
-            block.timestamp
-        );
+        // existing balance on the contract beforehand (Could be 0 if fee == MAX_BPS)
+        uint256 redirectionAmount = amount.sub(redirectionFee);
+        if (redirectionAmount > 0) {
+            IERC20Upgradeable(token).safeTransfer(recepient, redirectionAmount);
+            emit TokenRedirection(
+                recepient,
+                token,
+                redirectionAmount,
+                block.number,
+                block.timestamp
+            );
+        }
     }
 
     function _sweepRewardToken(address token) internal {
         _onlyNotProtectedTokens(token);
 
         uint256 toSend = IERC20Upgradeable(token).balanceOf(address(this));
-        _sendTokenToBribesProcessor(token, toSend);
+        address recepient = bribesRedirectionPaths[token];
+        _handleRewardTransfer(token, recepient, toSend);
     }
 
     /// PAYABLE FUNCTIONS ///
