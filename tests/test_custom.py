@@ -10,8 +10,8 @@ from helpers.time import days
   See test_strategy_permissions, for tests at the permissions level
 """
 
-CVX_FXS = "0xFEEf77d3f69374f66429C91d732A244f074bdf74"
-CVX_FXS_WHALE = "0xd658A338613198204DCa1143Ac3F01A722b5d94A"
+BB_A_USD = "0x7B50775383d3D6f0215A8F290f2C9e2eEBBEceb2"
+BB_A_USD_WHALE = "0xBA12222222228d8Ba445958a75a0704d566BF2C8"
 
 def test_after_wait_withdrawSome_unlocks_for_caller(setup_strat, want, vault, deployer):
     ## Try to withdraw all, fail because locked
@@ -194,15 +194,33 @@ def test_cant_sweep_want(want, strategy, strategist):
 
 def test_sweep_rewards(strategy, strategist, bribes_processor):
     # Transfer exra reward tokens to the strategy
-    amount = 100e18
-    cvxFxs = interface.IERC20Detailed(CVX_FXS)
-    whale = accounts.at(CVX_FXS_WHALE, force=True)
-    cvxFxs.transfer(strategy, amount, {"from": whale})
+    amount = 1000e18
+    bbausd = interface.IERC20Detailed(BB_A_USD)
+    whale = accounts.at(BB_A_USD_WHALE, force=True)
+    bbausd.transfer(strategy, amount, {"from": whale})
 
     # A non protected token can be swept
-    balance_processor_before = cvxFxs.balanceOf(bribes_processor)
-    strategy.sweepRewardToken(cvxFxs, {"from": strategist})
-    assert cvxFxs.balanceOf(bribes_processor) == balance_processor_before + amount
+    balance_processor_before = bbausd.balanceOf(bribes_processor)
+    strategy.sweepRewardToken(bbausd, {"from": strategist})
+    assert bbausd.balanceOf(bribes_processor) == balance_processor_before + amount
+
+
+def test_sweep_rewards_with_redirection(strategy, strategist, governance, bribes_processor):
+    # Transfer exra reward tokens to the strategy
+    amount = 1000e18
+    bbausd = interface.IERC20Detailed(BB_A_USD)
+    whale = accounts.at(BB_A_USD_WHALE, force=True)
+    bbausd.transfer(strategy, amount, {"from": whale})
+
+    # Set redirection path (no fee for simplicity)
+    strategy.setRedirectionToken(bbausd, strategist, 0, {"from": governance})
+    assert strategy.bribesRedirectionPaths(bbausd) == strategist
+    assert strategy.redirectionFees(bbausd) == 0
+
+    # A non protected token can be swept to its redirection recepient
+    balance_recepient_before = bbausd.balanceOf(strategist)
+    strategy.sweepRewardToken(bbausd, {"from": strategist})
+    assert bbausd.balanceOf(strategist) == balance_recepient_before + amount
 
 
 def test_cant_take_eth(deployer, strategy):
