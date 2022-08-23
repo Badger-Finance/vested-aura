@@ -16,6 +16,7 @@ import {IAuraLocker} from "../interfaces/aura/IAuraLocker.sol";
 import {IRewardDistributor} from "../interfaces/hiddenhand/IRewardDistributor.sol";
 import {IBribesProcessor} from "../interfaces/badger/IBribesProcessor.sol";
 import {IWeth} from "../interfaces/weth/IWeth.sol";
+import {IDelegateRegistry} from "../interfaces/snapshot/IDelegateRegistry.sol";
 
 /**
  * Version 1:
@@ -40,6 +41,8 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
 
     IBalancerVault public constant BALANCER_VAULT = IBalancerVault(0xBA12222222228d8Ba445958a75a0704d566BF2C8);
 
+    IDelegateRegistry public constant SNAPSHOT = IDelegateRegistry(0x469788fE6E9E9681C6ebF3bF78e7Fd26Fc015446);
+
     address public constant BADGER = 0x3472A5A71965499acd81997a54BBA8D852C6E53d;
 
     IAuraLocker public constant LOCKER = IAuraLocker(0x3Fa73f1E5d8A792C80F426fc8F84FBF7Ce9bBCAC);
@@ -56,12 +59,7 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
 
     uint256 private constant BPT_WETH_INDEX = 1;
 
-    event TreeDistribution(
-        address indexed token,
-        uint256 amount,
-        uint256 indexed blockNumber,
-        uint256 timestamp
-    );
+    event TreeDistribution(address indexed token, uint256 amount, uint256 indexed blockNumber, uint256 timestamp);
     event RewardsCollected(address token, uint256 amount);
 
     /// @dev Initialize the Strategy with security settings as well as tokens
@@ -93,11 +91,18 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
 
     /// ===== Extra Functions =====
 
-    /// @dev Change Delegation to another address
-    function manualSetDelegate(address delegate) external {
+    /// @dev Change aura locker Delegation to another address
+    function setAuraLockerDelegate(address delegate) external {
         _onlyGovernance();
         // Set delegate is enough as it will clear previous delegate automatically
         LOCKER.delegate(delegate);
+    }
+
+    /// @dev Set snapshot delegation for an arbitrary space ID
+    function setSnapshotDelegate(bytes32 id, address delegate) external {
+        _onlyGovernance();
+        // Set delegate is   enough as it will clear previous delegate automatically
+        SNAPSHOT.setDelegate(id, delegate);
     }
 
     ///@dev Should we check if the amount requested is more than what we can return on withdrawal?
@@ -112,7 +117,7 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
         processLocksOnReinvest = newProcessLocksOnReinvest;
     }
 
-     ///@dev Change the contract that handles bribes
+    ///@dev Change the contract that handles bribes
     function setBribesProcessor(IBribesProcessor newBribesProcessor) external {
         _onlyGovernance();
         bribesProcessor = newBribesProcessor;
@@ -132,7 +137,7 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
         _onlyGovernanceOrStrategist();
 
         uint256 length = tokens.length;
-        for(uint i = 0; i < length; ++i){
+        for (uint256 i = 0; i < length; ++i) {
             _sweepRewardToken(tokens[i]);
         }
     }
@@ -144,7 +149,7 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
         auraBalToBalEthBptMinOutBps = _minOutBps;
     }
 
-   /// ===== View Functions =====
+    /// ===== View Functions =====
 
     /// @dev Return the name of the strategy
     function getName() external pure override returns (string memory) {
@@ -189,8 +194,20 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
         return protectedTokens;
     }
 
+    /// @dev Get aura locker delegate address
+    function getAuraLockerDelegate() public view returns (address) {
+        return LOCKER.delegates(address(this));
+    }
+
+    /// @dev Get aura locker delegate address
+    /// @dev Duplicate of getAuraLockerDelegate() for legacy support
     function getDelegate() public view returns (address) {
         return LOCKER.delegates(address(this));
+    }
+
+    /// @dev Get snapshot delegation, for a given space ID
+    function getSnapshotDelegate(bytes32 id) external view returns (address) {
+        return SNAPSHOT.delegation(address(this), id);
     }
 
     /// ===== Internal Core Implementations =====
@@ -209,10 +226,7 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
     /// @dev Withdraw all funds, this is used for migrations, most of the time for emergency reasons
     function _withdrawAll() internal override {
         //NOTE: This probably will always fail unless we have all tokens expired
-        require(
-            balanceOfPool() == 0 && LOCKER.balanceOf(address(this)) == 0,
-            "Tokens still locked"
-        );
+        require(balanceOfPool() == 0 && LOCKER.balanceOf(address(this)) == 0, "Tokens still locked");
 
         // Make sure to call prepareWithdrawAll before _withdrawAll
     }
@@ -241,7 +255,7 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
     }
 
     /// @notice Autocompound auraBAL rewards into AURA.
-    /// @dev Anyone can claim bribes for this contract from hidden hands with 
+    /// @dev Anyone can claim bribes for this contract from hidden hands with
     ///      the correct merkle proof. Therefore, only tokens that are gained
     ///      after claiming rewards or swapping are auto-compunded.
     function _harvest() internal override returns (TokenAmount[] memory harvested) {
@@ -311,7 +325,10 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
     /// @dev allows claiming of multiple bribes, badger is sent to tree
     /// @notice Hidden hand only allows to claim all tokens at once, not individually.
     ///         Allows claiming any token as it uses the difference in balance
-    function claimBribesFromHiddenHand(IRewardDistributor hiddenHandDistributor, IRewardDistributor.Claim[] calldata _claims) external nonReentrant {
+    function claimBribesFromHiddenHand(IRewardDistributor hiddenHandDistributor, IRewardDistributor.Claim[] calldata _claims)
+        external
+        nonReentrant
+    {
         _onlyGovernanceOrStrategist();
         uint256 numClaims = _claims.length;
 
@@ -411,7 +428,7 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
     }
 
     function checkUpkeep(bytes calldata checkData) external view returns (bool upkeepNeeded, bytes memory performData) {
-        (, uint256 unlockable, ,) = LOCKER.lockedBalances(address(this));
+        (, uint256 unlockable, , ) = LOCKER.lockedBalances(address(this));
         upkeepNeeded = unlockable > 0;
     }
 
