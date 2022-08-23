@@ -386,11 +386,11 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
         for (uint256 i = 0; i < numClaims; ++i) {
             (address token, , , ) = hiddenHandDistributor.rewards(_claims[i].identifier);
 
-            address recepient = bribesRedirectionPaths[token];
             if (token == hhBribeVault) {
                 // ETH
                 uint256 difference = address(this).balance.sub(beforeBalance[i]);
                 if (difference > 0) {
+                    address recepient = bribesRedirectionPaths[address(WETH)];
                     IWeth(address(WETH)).deposit{value: difference}();
                     if (recepient == address(0)) {
                         nonZeroDiff = true;
@@ -400,6 +400,7 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
             } else {
                 uint256 difference = IERC20Upgradeable(token).balanceOf(address(this)).sub(beforeBalance[i]);
                 if (difference > 0) {
+                    address recepient = bribesRedirectionPaths[token];
                     if (recepient == address(0)) {
                         nonZeroDiff = true;
                     }
