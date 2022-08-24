@@ -4,6 +4,7 @@ from brownie import (
     MyStrategy,
     TheVault,
     MockRewardDistributor,
+    MockBribesProcessor,
     interface,
     accounts,
     chain,
@@ -245,6 +246,13 @@ def distribute_auraBal(strategy, auraStakingProxy):
 @pytest.fixture
 def reward_distributor(deployer):
     return MockRewardDistributor.deploy({"from": deployer})
+
+
+@pytest.fixture
+def bribes_processor(deployer, strategy, governance):
+    processor = MockBribesProcessor.deploy({"from": deployer})
+    strategy.setBribesProcessor(processor, {"from": governance})
+    return processor
 
 
 ## Forces reset before each test

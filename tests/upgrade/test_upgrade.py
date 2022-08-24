@@ -36,39 +36,25 @@ def test_check_storage_integrity(strat_proxy, vault_proxy, deployer, proxy_admin
     old_withdrawalSafetyCheck = strat_proxy.withdrawalSafetyCheck()
     old_processLocksOnReinvest = strat_proxy.processLocksOnReinvest()
     old_bribesProcessor = strat_proxy.bribesProcessor()
-    
-    with brownie.reverts():
-        strat_proxy.auraBalToBalEthBptMinOutBps()
+    old_auraBalToBalEthBptMinOutBps = strat_proxy.auraBalToBalEthBptMinOutBps()
 
-    logics = [
-        MyStrategy.deploy({"from": deployer}), 
-        MyStrategy.at("0x0d724E8AEE6F73b35A596C8C947c92c75eAc7818")
-    ]
+    logic = MyStrategy.deploy({"from": deployer})
 
-    chain.snapshot()
-    for new_strat_logic in logics:
-        ## Do the Upgrade
-        proxy_admin.upgrade(strat_proxy, new_strat_logic, {"from": proxy_admin_gov})
+    ## Do the Upgrade
+    proxy_admin.upgrade(strat_proxy, logic, {"from": proxy_admin_gov})
 
-        ## Check Integrity
-        assert old_want == strat_proxy.want()
-        assert old_vault == strat_proxy.vault()
-        assert old_withdrawalMaxDeviationThreshold == strat_proxy.withdrawalMaxDeviationThreshold()
-        assert old_autoCompoundRatio == strat_proxy.autoCompoundRatio()
-        assert old_withdrawalSafetyCheck == strat_proxy.withdrawalSafetyCheck()
-        assert old_processLocksOnReinvest == strat_proxy.processLocksOnReinvest()
-        assert old_bribesProcessor == strat_proxy.bribesProcessor()
+    ## Check Integrity
+    assert old_want == strat_proxy.want()
+    assert old_vault == strat_proxy.vault()
+    assert old_withdrawalMaxDeviationThreshold == strat_proxy.withdrawalMaxDeviationThreshold()
+    assert old_autoCompoundRatio == strat_proxy.autoCompoundRatio()
+    assert old_withdrawalSafetyCheck == strat_proxy.withdrawalSafetyCheck()
+    assert old_processLocksOnReinvest == strat_proxy.processLocksOnReinvest()
+    assert old_bribesProcessor == strat_proxy.bribesProcessor()
+    assert old_auraBalToBalEthBptMinOutBps == strat_proxy.auraBalToBalEthBptMinOutBps()
 
-        assert strat_proxy.auraBalToBalEthBptMinOutBps() == 0
+    gov = accounts.at(vault_proxy.governance(), force=True)
 
-        gov = accounts.at(vault_proxy.governance(), force=True)
-
-        # Set slippage tolerance
-        strat_proxy.setAuraBalToBalEthBptMinOutBps(9500, {"from": gov})
-        assert strat_proxy.auraBalToBalEthBptMinOutBps() == 9500
-
-        ## Let's do a quick earn and harvest as well
-        vault_proxy.earn({"from": gov})
-        strat_proxy.harvest({"from": gov})
-
-        chain.revert()
+    ## Let's do a quick earn and harvest as well
+    vault_proxy.earn({"from": gov})
+    strat_proxy.harvest({"from": gov})
