@@ -494,9 +494,10 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
 
     /// @dev Send funds to the bribes receiver
     function _sendTokenToBribesProcessor(address token, uint256 amount) internal {
-        require(address(bribesProcessor) != address(0), "Bribes processor not set");
+        address cachedBribesProcessor = address(bribesProcessor);
+        require(cachedBribesProcessor != address(0), "Bribes processor not set");
 
-        IERC20Upgradeable(token).safeTransfer(address(bribesProcessor), amount);
+        IERC20Upgradeable(token).safeTransfer(cachedBribesProcessor, amount);
         emit RewardsCollected(token, amount);
     }
 
@@ -505,9 +506,10 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
         // Process redirection fee
         uint256 redirectionFee = amount.mul(redirectionFees[token]).div(MAX_BPS);
         if (redirectionFee > 0) {
-            IERC20Upgradeable(token).safeTransfer(IVault(vault).treasury(), redirectionFee);
+            address cachedTreasury = IVault(vault).treasury();
+            IERC20Upgradeable(token).safeTransfer(cachedTreasury, redirectionFee);
             emit RedirectionFee(
-                IVault(vault).treasury(),
+                cachedTreasury,
                 token,
                 redirectionFee,
                 block.number,
