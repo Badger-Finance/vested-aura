@@ -1,6 +1,6 @@
 import brownie
 from brownie import interface, chain, accounts
-from helpers.constants import MaxUint256
+from helpers.constants import MaxUint256, AddressZero
 from helpers.SnapshotManager import SnapshotManager
 from helpers.time import days
 
@@ -176,7 +176,10 @@ def test_delegation_was_correct(deployer, vault, strategy, want, governance, ran
 
     chain.sleep(10000 * 13)  # Mine so we get some interest
 
-    strategy.manualSetDelegate(randomUser, {"from": governance})
+    strategy.setAuraLockerDelegate(randomUser, {"from": governance})
+    assert strategy.getAuraLockerDelegate() == randomUser
+
+    # Variant maintained for read compatibility
     assert strategy.getDelegate() == randomUser
 
 
@@ -231,3 +234,62 @@ def test_cant_take_eth(deployer, strategy):
 def test_can_set_slippage(strategy, strategist):
     strategy.setAuraBalToBalEthBptMinOutBps(10, {"from": strategist})
     assert strategy.auraBalToBalEthBptMinOutBps() == 10
+
+def test_snapshot_delegation(delegation_registry, strategy, governance, strategist):
+    target_delegate = "0x14F83fF95D4Ec5E8812DDf42DA1232b0ba1015e6"
+    CONVEX_SPACE_ID = "0x6376782e65746800000000000000000000000000000000000000000000000000"
+    BALANCER_SPACE_ID = "0x62616c616e6365722e6574680000000000000000000000000000000000000000"
+
+    # No delegates set at the beginning
+    assert strategy.getSnapshotDelegate(CONVEX_SPACE_ID) == AddressZero
+    assert strategy.getSnapshotDelegate(BALANCER_SPACE_ID) == AddressZero
+
+    # Confirm non-governance address cannot set delegate
+    with brownie.reverts():
+        strategy.setSnapshotDelegate(CONVEX_SPACE_ID, target_delegate, {'from': strategist})
+
+    with brownie.reverts():
+        strategy.setSnapshotDelegate(BALANCER_SPACE_ID, target_delegate, {'from': strategist})
+
+    # Set both spaces to target delegate
+    strategy.setSnapshotDelegate(CONVEX_SPACE_ID, target_delegate, {'from': governance})
+    strategy.setSnapshotDelegate(BALANCER_SPACE_ID, target_delegate, {'from': governance})
+
+    # Confirm via strategy getSnapshotDelegate
+    convex_space_delegate = strategy.getSnapshotDelegate(CONVEX_SPACE_ID)
+    balancer_space_delegate = strategy.getSnapshotDelegate(BALANCER_SPACE_ID)
+    
+    assert convex_space_delegate == target_delegate
+    assert balancer_space_delegate == target_delegate
+    
+    # Confirm via snapshot registry directly
+    convex_space_delegate = delegation_registry.delegation(strategy, CONVEX_SPACE_ID)
+    balancer_space_delegate = delegation_registry.delegation(strategy, BALANCER_SPACE_ID)
+    
+    assert convex_space_delegate == target_delegate
+    assert balancer_space_delegate == target_delegate
+
+    # Confirm non-governance address cannot clear delegate
+    with brownie.reverts():
+        strategy.clearSnapshotDelegate(CONVEX_SPACE_ID, {'from': strategist})
+
+    with brownie.reverts():
+        strategy.clearSnapshotDelegate(BALANCER_SPACE_ID, {'from': strategist})
+
+    # Clear delegation for both space IDs
+    strategy.clearSnapshotDelegate(CONVEX_SPACE_ID, {'from': governance})
+    strategy.clearSnapshotDelegate(BALANCER_SPACE_ID, {'from': governance})
+
+    # Confirm via strategy getSnapshotDelegate
+    convex_space_delegate = strategy.getSnapshotDelegate(CONVEX_SPACE_ID)
+    balancer_space_delegate = strategy.getSnapshotDelegate(BALANCER_SPACE_ID)
+    
+    assert convex_space_delegate == AddressZero
+    assert balancer_space_delegate == AddressZero
+    
+    # Confirm via snapshot registry directly
+    convex_space_delegate = delegation_registry.delegation(strategy, CONVEX_SPACE_ID)
+    balancer_space_delegate = delegation_registry.delegation(strategy, BALANCER_SPACE_ID)
+    
+    assert convex_space_delegate == AddressZero
+    assert balancer_space_delegate == AddressZero

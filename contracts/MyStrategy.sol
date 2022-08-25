@@ -16,6 +16,7 @@ import {IAuraLocker} from "../interfaces/aura/IAuraLocker.sol";
 import {IRewardDistributor} from "../interfaces/hiddenhand/IRewardDistributor.sol";
 import {IBribesProcessor} from "../interfaces/badger/IBribesProcessor.sol";
 import {IWeth} from "../interfaces/weth/IWeth.sol";
+import {IDelegateRegistry} from "../interfaces/snapshot/IDelegateRegistry.sol";
 
 /**
  * Version 1:
@@ -27,6 +28,7 @@ import {IWeth} from "../interfaces/weth/IWeth.sol";
  * - Introduces bribes redirection paths for certain bribe tokens
  * - Introduces the bribe redirection fee and processing
  * - Introduces a setter function for the above
+ * - Introduces snapshot delegation
  */
 
 contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
@@ -46,6 +48,8 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
     IBalancerVault public constant BALANCER_VAULT = IBalancerVault(0xBA12222222228d8Ba445958a75a0704d566BF2C8);
 
     IAuraLocker public constant LOCKER = IAuraLocker(0x3Fa73f1E5d8A792C80F426fc8F84FBF7Ce9bBCAC);
+
+    IDelegateRegistry public constant SNAPSHOT = IDelegateRegistry(0x469788fE6E9E9681C6ebF3bF78e7Fd26Fc015446);
 
     IERC20Upgradeable public constant BAL = IERC20Upgradeable(0xba100000625a3754423978a60c9317c58a424e3D);
     IERC20Upgradeable public constant WETH = IERC20Upgradeable(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
@@ -116,10 +120,23 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
     /// ===== Extra Functions =====
 
     /// @dev Change Delegation to another address
-    function manualSetDelegate(address delegate) external {
+    function setAuraLockerDelegate(address delegate) external {
         _onlyGovernance();
         // Set delegate is enough as it will clear previous delegate automatically
         LOCKER.delegate(delegate);
+    }
+
+    /// @dev Set snapshot delegation for an arbitrary space ID (Can't be used to remove delegation)
+    function setSnapshotDelegate(bytes32 id, address delegate) external {
+        _onlyGovernance();
+        // Set delegate is enough as it will clear previous delegate automatically
+        SNAPSHOT.setDelegate(id, delegate);
+    }
+
+    /// @dev Clears snapshot delegation for an arbitrary space ID
+    function clearSnapshotDelegate(bytes32 id) external {
+        _onlyGovernance();
+        SNAPSHOT.clearDelegate(id);
     }
 
     /// @dev Should we check if the amount requested is more than what we can return on withdrawal?
@@ -232,8 +249,20 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
         return protectedTokens;
     }
 
+    /// @dev Get aura locker delegate address
+    function getAuraLockerDelegate() public view returns (address) {
+        return LOCKER.delegates(address(this));
+    }
+
+    /// @dev Get aura locker delegate address
+    /// @dev Duplicate of getAuraLockerDelegate() for legacy support
     function getDelegate() public view returns (address) {
         return LOCKER.delegates(address(this));
+    }
+
+    /// @dev Get snapshot delegation, for a given space ID
+    function getSnapshotDelegate(bytes32 id) external view returns (address) {
+        return SNAPSHOT.delegation(address(this), id);
     }
 
     /// ===== Internal Core Implementations =====
