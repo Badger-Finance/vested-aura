@@ -28,7 +28,7 @@ import {IDelegateRegistry} from "../interfaces/snapshot/IDelegateRegistry.sol";
  * - Introduces bribes redirection paths for certain bribe tokens
  * - Introduces the bribe redirection fee and processing
  * - Introduces a setter function for the above
- * - Inroduces snapshot delegation
+ * - Introduces snapshot delegation
  */
 
 contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
