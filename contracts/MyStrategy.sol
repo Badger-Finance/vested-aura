@@ -28,6 +28,7 @@ import {IDelegateRegistry} from "../interfaces/snapshot/IDelegateRegistry.sol";
  * - Introduces bribes redirection paths for certain bribe tokens
  * - Introduces the bribe redirection fee and processing
  * - Introduces a setter function for the above
+ * - Inroduces snapshot delegation
  */
 
 contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
@@ -125,11 +126,17 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
         LOCKER.delegate(delegate);
     }
 
-    /// @dev Set snapshot delegation for an arbitrary space ID
+    /// @dev Set snapshot delegation for an arbitrary space ID (Can't be used to remove delegation)
     function setSnapshotDelegate(bytes32 id, address delegate) external {
         _onlyGovernance();
-        // Set delegate is   enough as it will clear previous delegate automatically
+        // Set delegate is enough as it will clear previous delegate automatically
         SNAPSHOT.setDelegate(id, delegate);
+    }
+
+    /// @dev Clears snapshot delegation for an arbitrary space ID
+    function clearSnapshotDelegate(bytes32 id) external {
+        _onlyGovernance();
+        SNAPSHOT.clearDelegate(id);
     }
 
     /// @dev Should we check if the amount requested is more than what we can return on withdrawal?
