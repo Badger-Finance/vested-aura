@@ -268,3 +268,28 @@ def test_snapshot_delegation(delegation_registry, strategy, governance, strategi
     
     assert convex_space_delegate == target_delegate
     assert balancer_space_delegate == target_delegate
+
+    # Confirm non-governance address cannot clear delegate
+    with brownie.reverts():
+        strategy.clearSnapshotDelegate(CONVEX_SPACE_ID, {'from': strategist})
+
+    with brownie.reverts():
+        strategy.clearSnapshotDelegate(BALANCER_SPACE_ID, {'from': strategist})
+
+    # Clear delegation for both space IDs
+    strategy.clearSnapshotDelegate(CONVEX_SPACE_ID, {'from': governance})
+    strategy.clearSnapshotDelegate(BALANCER_SPACE_ID, {'from': governance})
+
+    # Confirm via strategy getSnapshotDelegate
+    convex_space_delegate = strategy.getSnapshotDelegate(CONVEX_SPACE_ID)
+    balancer_space_delegate = strategy.getSnapshotDelegate(BALANCER_SPACE_ID)
+    
+    assert convex_space_delegate == AddressZero
+    assert balancer_space_delegate == AddressZero
+    
+    # Confirm via snapshot registry directly
+    convex_space_delegate = delegation_registry.delegation(strategy, CONVEX_SPACE_ID)
+    balancer_space_delegate = delegation_registry.delegation(strategy, BALANCER_SPACE_ID)
+    
+    assert convex_space_delegate == AddressZero
+    assert balancer_space_delegate == AddressZero
