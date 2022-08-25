@@ -8,6 +8,7 @@ from brownie import (
     interface,
     accounts,
     chain,
+    Contract
 )
 from _setup.config import (
     WANT,
@@ -37,6 +38,9 @@ def deployer():
 def user():
     return accounts[9]
 
+@pytest.fixture
+def delegation_registry():
+    return Contract.from_explorer("0x469788fE6E9E9681C6ebF3bF78e7Fd26Fc015446")
 
 ## Fund the account
 @pytest.fixture
