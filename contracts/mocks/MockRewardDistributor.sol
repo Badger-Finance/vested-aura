@@ -24,7 +24,8 @@ contract MockRewardDistributor {
             bytes32 merkleRoot,
             bytes32 proof,
             uint256 updateCount
-        ) {
+        )
+    {
         token = mockRewards[_identifier];
     }
 

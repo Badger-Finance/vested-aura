@@ -62,7 +62,6 @@ interface IAuraLocker {
 
     function lockedSupply() external view returns (uint256);
 
-
     // Withdraw/relock all currently locked tokens where the unlock time has passed
     function processExpiredLocks(
         bool _relock,

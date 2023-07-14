@@ -63,32 +63,15 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
 
     uint256 private constant BPT_WETH_INDEX = 1;
 
-    // Bribe Token -> Bribe Recepient 
-    mapping (address => address) public bribesRedirectionPaths;
+    // Bribe Token -> Bribe Recepient
+    mapping(address => address) public bribesRedirectionPaths;
     // Bribe Token -> Redirection Fee
-    mapping (address => uint256) public redirectionFees;
+    mapping(address => uint256) public redirectionFees;
 
-    event TreeDistribution(
-        address indexed token,
-        uint256 amount,
-        uint256 indexed blockNumber,
-        uint256 timestamp
-    );
+    event TreeDistribution(address indexed token, uint256 amount, uint256 indexed blockNumber, uint256 timestamp);
     event RewardsCollected(address token, uint256 amount);
-    event RedirectionFee(
-        address indexed destination,
-        address indexed token,
-        uint256 amount,
-        uint256 indexed blockNumber,
-        uint256 timestamp
-    );
-    event TokenRedirection(
-        address indexed destination,
-        address indexed token,
-        uint256 amount,
-        uint256 indexed blockNumber,
-        uint256 timestamp
-    );
+    event RedirectionFee(address indexed destination, address indexed token, uint256 amount, uint256 indexed blockNumber, uint256 timestamp);
+    event TokenRedirection(address indexed destination, address indexed token, uint256 amount, uint256 indexed blockNumber, uint256 timestamp);
 
     /// @dev Initialize the Strategy with security settings as well as tokens
     /// @notice Proxies will set any non constant variable you declare as default value
@@ -151,22 +134,26 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
         processLocksOnReinvest = newProcessLocksOnReinvest;
     }
 
-     /// @dev Change the contract that handles bribes
+    /// @dev Change the contract that handles bribes
     function setBribesProcessor(IBribesProcessor newBribesProcessor) external {
         _onlyGovernance();
         bribesProcessor = newBribesProcessor;
     }
 
-     /// @dev Sets the redirection path for a given token as well as the redirection fee to 
-     ///      process for it.
-     /// @notice There can only be one recepient per token, calling this function for the same
-     /// @notice token will replace the previous one.
-     /// @notice Adding a token to this mapping means that the full amount (minus the fee) of this
-     /// @notice token, claimed from HiddenHands, will be transfer to this recepient.
-     /// @param token Bribe token to redirect
-     /// @param recepient Address where redirected token will be transferred
-     /// @param redirectionFee Fee to be processed for the redirection service, different per token
-    function setRedirectionToken(address token, address recepient, uint256 redirectionFee) external {
+    /// @dev Sets the redirection path for a given token as well as the redirection fee to
+    ///      process for it.
+    /// @notice There can only be one recepient per token, calling this function for the same
+    /// @notice token will replace the previous one.
+    /// @notice Adding a token to this mapping means that the full amount (minus the fee) of this
+    /// @notice token, claimed from HiddenHands, will be transfer to this recepient.
+    /// @param token Bribe token to redirect
+    /// @param recepient Address where redirected token will be transferred
+    /// @param redirectionFee Fee to be processed for the redirection service, different per token
+    function setRedirectionToken(
+        address token,
+        address recepient,
+        uint256 redirectionFee
+    ) external {
         _onlyGovernance();
         require(token != address(0), "Invalid token address");
         require(recepient != address(0), "Invalid recepient address");
@@ -192,7 +179,7 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
         _onlyGovernanceOrStrategist();
 
         uint256 length = tokens.length;
-        for(uint i = 0; i < length; ++i){
+        for (uint256 i = 0; i < length; ++i) {
             _sweepRewardToken(tokens[i]);
         }
     }
@@ -204,7 +191,7 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
         auraBalToBalEthBptMinOutBps = _minOutBps;
     }
 
-   /// ===== View Functions =====
+    /// ===== View Functions =====
 
     /// @dev Return the name of the strategy
     function getName() external pure override returns (string memory) {
@@ -281,10 +268,7 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
     /// @dev Withdraw all funds, this is used for migrations, most of the time for emergency reasons
     function _withdrawAll() internal override {
         //NOTE: This probably will always fail unless we have all tokens expired
-        require(
-            balanceOfPool() == 0 && LOCKER.balanceOf(address(this)) == 0,
-            "Tokens still locked"
-        );
+        require(balanceOfPool() == 0 && LOCKER.balanceOf(address(this)) == 0, "Tokens still locked");
 
         // Make sure to call prepareWithdrawAll before _withdrawAll
     }
@@ -313,7 +297,7 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
     }
 
     /// @notice Autocompound auraBAL rewards into AURA.
-    /// @dev Anyone can claim bribes for this contract from hidden hands with 
+    /// @dev Anyone can claim bribes for this contract from hidden hands with
     ///      the correct merkle proof. Therefore, only tokens that are gained
     ///      after claiming rewards or swapping are auto-compunded.
     function _harvest() internal override returns (TokenAmount[] memory harvested) {
@@ -383,7 +367,10 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
     /// @dev allows claiming of multiple bribes
     /// @notice Hidden hand only allows to claim all tokens at once, not individually.
     ///         Allows claiming any token as it uses the difference in balance
-    function claimBribesFromHiddenHand(IRewardDistributor hiddenHandDistributor, IRewardDistributor.Claim[] calldata _claims) external nonReentrant {
+    function claimBribesFromHiddenHand(IRewardDistributor hiddenHandDistributor, IRewardDistributor.Claim[] calldata _claims)
+        external
+        nonReentrant
+    {
         _onlyGovernanceOrStrategist();
         uint256 numClaims = _claims.length;
 
@@ -467,7 +454,7 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
     }
 
     function checkUpkeep(bytes calldata checkData) external view returns (bool upkeepNeeded, bytes memory performData) {
-        (, uint256 unlockable, ,) = LOCKER.lockedBalances(address(this));
+        (, uint256 unlockable, , ) = LOCKER.lockedBalances(address(this));
         upkeepNeeded = unlockable > 0;
     }
 
@@ -486,11 +473,15 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
     }
 
     /// *** Handling of rewards ***
-    function _handleRewardTransfer(address token, address recepient, uint256 amount) internal {
+    function _handleRewardTransfer(
+        address token,
+        address recepient,
+        uint256 amount
+    ) internal {
         // NOTE: Tokens with an assigned recepient are sent there
         if (recepient != address(0)) {
             _sendTokenToBriber(token, recepient, amount);
-        // NOTE: All other tokens are sent to the bribes processor
+            // NOTE: All other tokens are sent to the bribes processor
         } else {
             _sendTokenToBribesProcessor(token, amount);
         }
@@ -511,34 +502,26 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
     }
 
     /// @dev Takes a fee on the token and sends remaining to the given briber recepient
-    function _sendTokenToBriber(address token, address recepient, uint256 amount) internal {
+    function _sendTokenToBriber(
+        address token,
+        address recepient,
+        uint256 amount
+    ) internal {
         // Process redirection fee
         uint256 redirectionFee = amount.mul(redirectionFees[token]).div(MAX_BPS);
         if (redirectionFee > 0) {
             address cachedTreasury = IVault(vault).treasury();
             IERC20Upgradeable(token).safeTransfer(cachedTreasury, redirectionFee);
-            emit RedirectionFee(
-                cachedTreasury,
-                token,
-                redirectionFee,
-                block.number,
-                block.timestamp
-            );
+            emit RedirectionFee(cachedTreasury, token, redirectionFee, block.number, block.timestamp);
         }
 
         // Send remaining to bribe recepient
-        // NOTE: Calculating instead of checking balance since there could have been an 
+        // NOTE: Calculating instead of checking balance since there could have been an
         // existing balance on the contract beforehand (Could be 0 if fee == MAX_BPS)
         uint256 redirectionAmount = amount.sub(redirectionFee);
         if (redirectionAmount > 0) {
             IERC20Upgradeable(token).safeTransfer(recepient, redirectionAmount);
-            emit TokenRedirection(
-                recepient,
-                token,
-                redirectionAmount,
-                block.number,
-                block.timestamp
-            );
+            emit TokenRedirection(recepient, token, redirectionAmount, block.number, block.timestamp);
         }
     }
 
