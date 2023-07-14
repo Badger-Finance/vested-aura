@@ -13,6 +13,7 @@ from helpers.time import days
 BB_A_USD = "0x7B50775383d3D6f0215A8F290f2C9e2eEBBEceb2"
 BB_A_USD_WHALE = "0xBA12222222228d8Ba445958a75a0704d566BF2C8"
 
+
 def test_after_wait_withdrawSome_unlocks_for_caller(setup_strat, want, vault, deployer):
     ## Try to withdraw all, fail because locked
     initial_dep = vault.balanceOf(deployer)
@@ -41,7 +42,6 @@ def test_after_wait_withdrawSome_unlocks_for_caller(setup_strat, want, vault, de
 
 
 def test_if_change_min_some_can_be_withdraw_easy(setup_strat, vault, deployer, want):
-
     initial_b = want.balanceOf(deployer)
     ## TODO / CHECK This is the ideal math but it seems to revert on me
     ## min = (vault.MAX_BPS() - vault.toEarnBps() - 1) * vault.balanceOf(deployer) / 10000
@@ -85,10 +85,7 @@ def test_after_deposit_locker_has_more_funds(
     ## TEST: Did the proxy get more want?
     locked, _ = locker.balances(strategy)
     # TODO: Shouldn't this be just locker.balanceOf(strategy)?
-    assert (
-        locked + locker.balanceOf(strategy)
-        > intitial_in_locker
-    )
+    assert locked + locker.balanceOf(strategy) > intitial_in_locker
 
 
 def test_locked_balance_after_expiration(
@@ -156,7 +153,9 @@ def test_locked_balance_after_expiration(
     assert strategy.balanceOfWant() == available
 
 
-def test_delegation_was_correct(deployer, vault, strategy, want, governance, randomUser, locker):
+def test_delegation_was_correct(
+    deployer, vault, strategy, want, governance, randomUser, locker
+):
     # Setup
     startingBalance = want.balanceOf(deployer)
     depositAmount = startingBalance // 2
@@ -208,7 +207,9 @@ def test_sweep_rewards(strategy, strategist, bribes_processor):
     assert bbausd.balanceOf(bribes_processor) == balance_processor_before + amount
 
 
-def test_sweep_rewards_with_redirection(strategy, strategist, governance, bribes_processor):
+def test_sweep_rewards_with_redirection(
+    strategy, strategist, governance, bribes_processor
+):
     # Transfer exra reward tokens to the strategy
     amount = 1000e18
     bbausd = interface.IERC20Detailed(BB_A_USD)
@@ -235,10 +236,15 @@ def test_can_set_slippage(strategy, strategist):
     strategy.setAuraBalToBalEthBptMinOutBps(10, {"from": strategist})
     assert strategy.auraBalToBalEthBptMinOutBps() == 10
 
+
 def test_snapshot_delegation(delegation_registry, strategy, governance, strategist):
     target_delegate = "0x14F83fF95D4Ec5E8812DDf42DA1232b0ba1015e6"
-    CONVEX_SPACE_ID = "0x6376782e65746800000000000000000000000000000000000000000000000000"
-    BALANCER_SPACE_ID = "0x62616c616e6365722e6574680000000000000000000000000000000000000000"
+    CONVEX_SPACE_ID = (
+        "0x6376782e65746800000000000000000000000000000000000000000000000000"
+    )
+    BALANCER_SPACE_ID = (
+        "0x62616c616e6365722e6574680000000000000000000000000000000000000000"
+    )
 
     # No delegates set at the beginning
     assert strategy.getSnapshotDelegate(CONVEX_SPACE_ID) == AddressZero
@@ -246,50 +252,60 @@ def test_snapshot_delegation(delegation_registry, strategy, governance, strategi
 
     # Confirm non-governance address cannot set delegate
     with brownie.reverts():
-        strategy.setSnapshotDelegate(CONVEX_SPACE_ID, target_delegate, {'from': strategist})
+        strategy.setSnapshotDelegate(
+            CONVEX_SPACE_ID, target_delegate, {"from": strategist}
+        )
 
     with brownie.reverts():
-        strategy.setSnapshotDelegate(BALANCER_SPACE_ID, target_delegate, {'from': strategist})
+        strategy.setSnapshotDelegate(
+            BALANCER_SPACE_ID, target_delegate, {"from": strategist}
+        )
 
     # Set both spaces to target delegate
-    strategy.setSnapshotDelegate(CONVEX_SPACE_ID, target_delegate, {'from': governance})
-    strategy.setSnapshotDelegate(BALANCER_SPACE_ID, target_delegate, {'from': governance})
+    strategy.setSnapshotDelegate(CONVEX_SPACE_ID, target_delegate, {"from": governance})
+    strategy.setSnapshotDelegate(
+        BALANCER_SPACE_ID, target_delegate, {"from": governance}
+    )
 
     # Confirm via strategy getSnapshotDelegate
     convex_space_delegate = strategy.getSnapshotDelegate(CONVEX_SPACE_ID)
     balancer_space_delegate = strategy.getSnapshotDelegate(BALANCER_SPACE_ID)
-    
+
     assert convex_space_delegate == target_delegate
     assert balancer_space_delegate == target_delegate
-    
+
     # Confirm via snapshot registry directly
     convex_space_delegate = delegation_registry.delegation(strategy, CONVEX_SPACE_ID)
-    balancer_space_delegate = delegation_registry.delegation(strategy, BALANCER_SPACE_ID)
-    
+    balancer_space_delegate = delegation_registry.delegation(
+        strategy, BALANCER_SPACE_ID
+    )
+
     assert convex_space_delegate == target_delegate
     assert balancer_space_delegate == target_delegate
 
     # Confirm non-governance address cannot clear delegate
     with brownie.reverts():
-        strategy.clearSnapshotDelegate(CONVEX_SPACE_ID, {'from': strategist})
+        strategy.clearSnapshotDelegate(CONVEX_SPACE_ID, {"from": strategist})
 
     with brownie.reverts():
-        strategy.clearSnapshotDelegate(BALANCER_SPACE_ID, {'from': strategist})
+        strategy.clearSnapshotDelegate(BALANCER_SPACE_ID, {"from": strategist})
 
     # Clear delegation for both space IDs
-    strategy.clearSnapshotDelegate(CONVEX_SPACE_ID, {'from': governance})
-    strategy.clearSnapshotDelegate(BALANCER_SPACE_ID, {'from': governance})
+    strategy.clearSnapshotDelegate(CONVEX_SPACE_ID, {"from": governance})
+    strategy.clearSnapshotDelegate(BALANCER_SPACE_ID, {"from": governance})
 
     # Confirm via strategy getSnapshotDelegate
     convex_space_delegate = strategy.getSnapshotDelegate(CONVEX_SPACE_ID)
     balancer_space_delegate = strategy.getSnapshotDelegate(BALANCER_SPACE_ID)
-    
+
     assert convex_space_delegate == AddressZero
     assert balancer_space_delegate == AddressZero
-    
+
     # Confirm via snapshot registry directly
     convex_space_delegate = delegation_registry.delegation(strategy, CONVEX_SPACE_ID)
-    balancer_space_delegate = delegation_registry.delegation(strategy, BALANCER_SPACE_ID)
-    
+    balancer_space_delegate = delegation_registry.delegation(
+        strategy, BALANCER_SPACE_ID
+    )
+
     assert convex_space_delegate == AddressZero
     assert balancer_space_delegate == AddressZero

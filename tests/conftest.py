@@ -8,7 +8,7 @@ from brownie import (
     interface,
     accounts,
     chain,
-    Contract
+    Contract,
 )
 from _setup.config import (
     WANT,
@@ -38,9 +38,11 @@ def deployer():
 def user():
     return accounts[9]
 
+
 @pytest.fixture
 def delegation_registry():
     return Contract.from_explorer("0x469788fE6E9E9681C6ebF3bF78e7Fd26Fc015446")
+
 
 ## Fund the account
 @pytest.fixture
@@ -198,7 +200,6 @@ def auraStakingProxy():
 
 @pytest.fixture
 def setup_share_math(deployer, vault, want, governance):
-
     depositAmount = int(want.balanceOf(deployer) * 0.5)
     assert depositAmount > 0
     want.approve(vault.address, MaxUint256, {"from": deployer})
@@ -244,7 +245,7 @@ def distribute_auraBal(strategy, auraStakingProxy):
 
     # auraStakingProxy.setKeeper(keeper, {"from": })
     # auraStakingProxy.distribute(1, {'from': keeper})
-    auraStakingProxy.distribute({'from': auraStakingProxy.keeper()})
+    auraStakingProxy.distribute({"from": auraStakingProxy.keeper()})
 
 
 @pytest.fixture

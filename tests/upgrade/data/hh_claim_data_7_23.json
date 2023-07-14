@@ -1,0 +1,31 @@
+{
+    "error": false,
+    "data": [
+        {
+            "symbol": "usdc",
+            "name": "USD Coin",
+            "token": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+            "decimals": 6,
+            "chainId": 1,
+            "protocol": "aura",
+            "claimable": "4607.936029",
+            "cumulativeAmount": "4607936029",
+            "value": 4606.5582561273295,
+            "activeTimer": 0,
+            "pausedTimer": 0,
+            "claimMetadata": {
+                "identifier": "0x6b775bb35addec5f55aeb4dae56161752c36517721776c3e623c22ac334c7436",
+                "account": "0x3c0989ef27e3e3fab87a2d7c38b35880c90e63b5",
+                "amount": "4607936029",
+                "merkleProof": [
+                    "0xf839d9112285e2728661d01ad0c14986f6060cb45e7ea4620d9cdd1fa336d596",
+                    "0x877a50ccbff50edad74cef00b8f19881058d6ef524e05f947e7dfd0c792d8723",
+                    "0x81418acd2729ead38463180718899a61334dd6b5a938b9e10882d2ffce44e6c0",
+                    "0xa67d8195e155043a265e3d7adb0952757252a71d9a957f2991029fe06f821fff",
+                    "0x9d4f6c68c356a35532bd20909be9babb43e95144278f51ce846edacef334baf2",
+                    "0x62438928b8f77cfd4aca54fbef7396e4f7c2c6db0ccfd719a2875b6ddc430be6"
+                ]
+            }
+        }
+    ]
+}

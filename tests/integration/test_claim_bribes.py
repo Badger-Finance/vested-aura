@@ -1,11 +1,7 @@
 import pytest
 import brownie
 from helpers.constants import AddressZero
-from brownie import (
-    accounts,
-    interface,
-    web3
-)
+from brownie import accounts, interface, web3
 
 # Tokens
 BADGER = "0x3472A5A71965499acd81997a54BBA8D852C6E53d"
@@ -30,17 +26,20 @@ def badger(deployer):
     badger.transfer(deployer, 100e18, {"from": BADGER_WHALE})
     return badger
 
+
 @pytest.fixture
 def gno(deployer):
     gno = interface.IERC20Detailed(GNO)
     gno.transfer(deployer, 100e18, {"from": GNO_WHALE})
     return gno
 
+
 @pytest.fixture
 def usdc(deployer):
     usdc = interface.IERC20Detailed(USDC)
     usdc.transfer(deployer, 100e8, {"from": USDC_WHALE})
     return usdc
+
 
 @pytest.fixture
 def weth(deployer, strategy):
@@ -52,7 +51,9 @@ def weth(deployer, strategy):
 
 
 @pytest.fixture(autouse=True)
-def reward_distributor_setup(want, badger, gno, usdc, weth, deployer, reward_distributor):
+def reward_distributor_setup(
+    want, badger, gno, usdc, weth, deployer, reward_distributor
+):
     accounts.at(deployer).transfer(reward_distributor, "1 ether")
 
     reward_distributor.addReward(WANT_IDENTIFIER, want, {"from": deployer})
@@ -82,12 +83,15 @@ def reward_distributor_setup(want, badger, gno, usdc, weth, deployer, reward_dis
 def gno_recepient():
     return accounts[7]
 
+
 @pytest.fixture
 def weth_recepient():
     return accounts[9]
 
 
-def test_claim_bribes(want, strategy, bribes_processor, reward_distributor, strategist, deployer):
+def test_claim_bribes(
+    want, strategy, bribes_processor, reward_distributor, strategist, deployer
+):
     balance_before = want.balanceOf(bribes_processor)
 
     amount = want.balanceOf(deployer) // 2
@@ -96,9 +100,9 @@ def test_claim_bribes(want, strategy, bribes_processor, reward_distributor, stra
     claim_tx = strategy.claimBribesFromHiddenHand(
         reward_distributor,
         [
-            (WANT_IDENTIFIER, strategy, amount, []), 
+            (WANT_IDENTIFIER, strategy, amount, []),
         ],
-        {"from": strategist}
+        {"from": strategist},
     )
 
     assert want.balanceOf(bribes_processor) == balance_before + amount
@@ -116,7 +120,7 @@ def test_claim_eth_bribes(strategy, strategist, bribes_processor, reward_distrib
     claim_tx = strategy.claimBribesFromHiddenHand(
         reward_distributor,
         [(WETH_IDENTIFIER, strategy, amount, [])],
-        {"from": strategist}
+        {"from": strategist},
     )
 
     assert weth.balanceOf(bribes_processor) == balance_before + amount
@@ -138,16 +142,19 @@ def test_sweep_weth(strategy, strategist, bribes_processor, deployer, weth):
     assert weth.balanceOf(bribes_processor) == balance_before_proc + amount
 
 
-def test_bribe_claiming_no_processor(want, deployer, strategy, strategist, reward_distributor):
+def test_bribe_claiming_no_processor(
+    want, deployer, strategy, strategist, reward_distributor
+):
     with brownie.reverts("Bribes processor not set"):
         amount = want.balanceOf(deployer) // 2
         strategy.claimBribesFromHiddenHand(
             reward_distributor,
             [
-                (WANT_IDENTIFIER, strategy, amount, []), 
+                (WANT_IDENTIFIER, strategy, amount, []),
             ],
-            {"from": strategist}
+            {"from": strategist},
         )
+
 
 def test_claim_bribes_with_redirection(
     badger,
@@ -156,13 +163,13 @@ def test_claim_bribes_with_redirection(
     weth,
     gno_recepient,
     weth_recepient,
-    vault, 
+    vault,
     strategy,
     reward_distributor,
     bribes_processor,
-    strategist, 
+    strategist,
     deployer,
-    governance
+    governance,
 ):
     treasury = vault.treasury()
 
@@ -217,14 +224,14 @@ def test_claim_bribes_with_redirection(
             (BADGER_IDENTIFIER, strategy, badger_amount, []),
             (GNO_IDENTIFIER, strategy, gno_amount, []),
             (USDC_IDENTIFIER, strategy, usdc_amount, []),
-            (WETH_IDENTIFIER, strategy, eth_amount, [])
+            (WETH_IDENTIFIER, strategy, eth_amount, []),
         ],
-        {"from": strategist}
+        {"from": strategist},
     )
 
     # Check that redirection fee was processed
     event = claim_tx.events["RedirectionFee"]
-    assert len(event) == 2 # Both GNO and ETH have fees assigned to them
+    assert len(event) == 2  # Both GNO and ETH have fees assigned to them
     # Confirm GNO event
     expected_gno_fee_amount = gno_amount * strategy.redirectionFees(gno) / 10000
     assert event[0]["destination"] == treasury
@@ -248,14 +255,28 @@ def test_claim_bribes_with_redirection(
     # Confirm GNO event
     assert event[1]["destination"] == gno_recepient
     assert event[1]["token"] == gno
-    assert event[1]["amount"] == gno_recepient_balance_before + gno_amount - expected_gno_fee_amount
+    assert (
+        event[1]["amount"]
+        == gno_recepient_balance_before + gno_amount - expected_gno_fee_amount
+    )
     # Confirm ETH event
     assert event[2]["destination"] == weth_recepient
     assert event[2]["token"] == weth
-    assert event[2]["amount"] == weth_recepient_balance_before + eth_amount - expected_weth_fee_amount
+    assert (
+        event[2]["amount"]
+        == weth_recepient_balance_before + eth_amount - expected_weth_fee_amount
+    )
 
     # Check accounting
     assert badger.balanceOf(treasury) == badger_recepient_balance_before + badger_amount
-    assert gno.balanceOf(gno_recepient) == gno_recepient_balance_before + gno_amount - expected_gno_fee_amount
-    assert weth.balanceOf(weth_recepient) == weth_recepient_balance_before + eth_amount - expected_weth_fee_amount
-    assert usdc.balanceOf(bribes_processor) == usdc_processor_balance_before + usdc_amount
+    assert (
+        gno.balanceOf(gno_recepient)
+        == gno_recepient_balance_before + gno_amount - expected_gno_fee_amount
+    )
+    assert (
+        weth.balanceOf(weth_recepient)
+        == weth_recepient_balance_before + eth_amount - expected_weth_fee_amount
+    )
+    assert (
+        usdc.balanceOf(bribes_processor) == usdc_processor_balance_before + usdc_amount
+    )
