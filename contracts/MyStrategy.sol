@@ -390,18 +390,11 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
         uint256 beforeVaultBalance = _getBalance();
         uint256 beforePricePerFullShare = _getPricePerFullShare();
 
-        // Hidden hand uses BRIBE_VAULT address as a substitute for ETH
-        address hhBribeVault = hiddenHandDistributor.BRIBE_VAULT();
-
         // Track token balances before bribes claim
         uint256[] memory beforeBalance = new uint256[](numClaims);
         for (uint256 i = 0; i < numClaims; ++i) {
             (address token, , , ) = hiddenHandDistributor.rewards(_claims[i].identifier);
-            if (token == hhBribeVault) {
-                beforeBalance[i] = address(this).balance;
-            } else {
-                beforeBalance[i] = IERC20Upgradeable(token).balanceOf(address(this));
-            }
+            beforeBalance[i] = IERC20Upgradeable(token).balanceOf(address(this));
         }
 
         // Claim bribes
@@ -415,26 +408,13 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
         for (uint256 i = 0; i < numClaims; ++i) {
             (address token, , , ) = hiddenHandDistributor.rewards(_claims[i].identifier);
 
-            if (token == hhBribeVault) {
-                // ETH
-                uint256 difference = address(this).balance.sub(beforeBalance[i]);
-                if (difference > 0) {
-                    address recepient = bribesRedirectionPaths[address(WETH)];
-                    IWeth(address(WETH)).deposit{value: difference}();
-                    if (recepient == address(0)) {
-                        nonZeroDiff = true;
-                    }
-                    _handleRewardTransfer(address(WETH), recepient, difference);
+            uint256 difference = IERC20Upgradeable(token).balanceOf(address(this)).sub(beforeBalance[i]);
+            if (difference > 0) {
+                address recepient = bribesRedirectionPaths[token];
+                if (recepient == address(0)) {
+                    nonZeroDiff = true;
                 }
-            } else {
-                uint256 difference = IERC20Upgradeable(token).balanceOf(address(this)).sub(beforeBalance[i]);
-                if (difference > 0) {
-                    address recepient = bribesRedirectionPaths[token];
-                    if (recepient == address(0)) {
-                        nonZeroDiff = true;
-                    }
-                    _handleRewardTransfer(token, recepient, difference);
-                }
+                _handleRewardTransfer(token, recepient, difference);
             }
         }
 
