@@ -17,7 +17,7 @@ BADGER_WHALE = "0xF977814e90dA44bFA03b6295A0616a897441aceC"
 GNO_WHALE = "0xeC83f750adfe0e52A8b0DbA6eeB6be5Ba0beE535"
 USDC_WHALE = "0x0A59649758aa4d66E25f08Dd01271e891fe52199"
 
-ETH_IDENTIFIER = web3.keccak(text="ETH")
+WETH_IDENTIFIER = web3.keccak(text="WETH")
 BADGER_IDENTIFIER = web3.keccak(text="BADGER")
 WANT_IDENTIFIER = web3.keccak(text="WANT")
 GNO_IDENTIFIER = web3.keccak(text="GNO")
@@ -44,7 +44,7 @@ def usdc(deployer):
 
 @pytest.fixture
 def weth(deployer, strategy):
-    amount = 1e18
+    amount = 2e18
     weth = interface.IWeth(strategy.WETH())
     weth.deposit({"from": deployer, "value": amount})
     weth = interface.IERC20Detailed(weth.address)
@@ -52,7 +52,7 @@ def weth(deployer, strategy):
 
 
 @pytest.fixture(autouse=True)
-def reward_distributor_setup(want, badger, gno, usdc, deployer, reward_distributor):
+def reward_distributor_setup(want, badger, gno, usdc, weth, deployer, reward_distributor):
     accounts.at(deployer).transfer(reward_distributor, "1 ether")
 
     reward_distributor.addReward(WANT_IDENTIFIER, want, {"from": deployer})
@@ -70,6 +70,10 @@ def reward_distributor_setup(want, badger, gno, usdc, deployer, reward_distribut
     reward_distributor.addReward(USDC_IDENTIFIER, usdc, {"from": deployer})
     amount = usdc.balanceOf(deployer) // 2
     usdc.transfer(reward_distributor, amount, {"from": deployer})
+
+    reward_distributor.addReward(WETH_IDENTIFIER, weth, {"from": deployer})
+    amount = weth.balanceOf(deployer) // 2
+    weth.transfer(reward_distributor, amount, {"from": deployer})
 
     return reward_distributor
 
@@ -111,7 +115,7 @@ def test_claim_eth_bribes(strategy, strategist, bribes_processor, reward_distrib
 
     claim_tx = strategy.claimBribesFromHiddenHand(
         reward_distributor,
-        [(ETH_IDENTIFIER, strategy, amount, [])],
+        [(WETH_IDENTIFIER, strategy, amount, [])],
         {"from": strategist}
     )
 
@@ -213,7 +217,7 @@ def test_claim_bribes_with_redirection(
             (BADGER_IDENTIFIER, strategy, badger_amount, []),
             (GNO_IDENTIFIER, strategy, gno_amount, []),
             (USDC_IDENTIFIER, strategy, usdc_amount, []),
-            (ETH_IDENTIFIER, strategy, eth_amount, [])
+            (WETH_IDENTIFIER, strategy, eth_amount, [])
         ],
         {"from": strategist}
     )

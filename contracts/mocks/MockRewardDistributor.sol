@@ -10,9 +10,6 @@ import {IRewardDistributor} from "../../interfaces/hiddenhand/IRewardDistributor
 contract MockRewardDistributor {
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
-    address constant public BRIBE_VAULT = address(1);
-    bytes32 constant private ETH_IDENTIFIER = keccak256("ETH");
-
     mapping(bytes32 => address) public mockRewards;
 
     function addReward(bytes32 _identifier, address _token) external {
@@ -28,24 +25,14 @@ contract MockRewardDistributor {
             bytes32 proof,
             uint256 updateCount
         ) {
-        if (_identifier == ETH_IDENTIFIER) {
-            token = BRIBE_VAULT;
-        } else {
-            token = mockRewards[_identifier];
-        }
+        token = mockRewards[_identifier];
     }
 
     function claim(IRewardDistributor.Claim[] memory _claims) external {
         for (uint256 i; i < _claims.length; ++i) {
             IRewardDistributor.Claim memory claim = _claims[i];
-
-            if (claim.identifier == ETH_IDENTIFIER) {
-                (bool sent, ) = payable(claim.account).call{value: claim.amount}("");
-                require(sent, "Transfer failed");
-            } else {
-                IERC20Upgradeable token = IERC20Upgradeable(mockRewards[claim.identifier]);
-                token.safeTransfer(claim.account, claim.amount);
-            }
+            IERC20Upgradeable token = IERC20Upgradeable(mockRewards[claim.identifier]);
+            token.safeTransfer(claim.account, claim.amount);
         }
     }
 
