@@ -80,12 +80,12 @@ def reward_distributor_setup(
 
 
 @pytest.fixture
-def gno_recepient():
+def gno_recipient():
     return accounts[7]
 
 
 @pytest.fixture
-def weth_recepient():
+def weth_recipient():
     return accounts[9]
 
 
@@ -161,8 +161,8 @@ def test_claim_bribes_with_redirection(
     gno,
     usdc,
     weth,
-    gno_recepient,
-    weth_recepient,
+    gno_recipient,
+    weth_recipient,
     vault,
     strategy,
     reward_distributor,
@@ -191,14 +191,14 @@ def test_claim_bribes_with_redirection(
     with brownie.reverts("Invalid redirection fee"):
         strategy.setRedirectionToken(badger, treasury, 20000, {"from": governance})
 
-    # Setting GNO to be redirected to its intended recepient with a 15% fee
-    strategy.setRedirectionToken(gno, gno_recepient, 1500, {"from": governance})
-    assert strategy.bribesRedirectionPaths(gno) == gno_recepient
+    # Setting GNO to be redirected to its intended recipient with a 15% fee
+    strategy.setRedirectionToken(gno, gno_recipient, 1500, {"from": governance})
+    assert strategy.bribesRedirectionPaths(gno) == gno_recipient
     assert strategy.redirectionFees(gno) == 1500
 
-    # Setting ETH to be redirected to its intended recepient with a 10% fee
-    strategy.setRedirectionToken(weth, weth_recepient, 1000, {"from": governance})
-    assert strategy.bribesRedirectionPaths(weth) == weth_recepient
+    # Setting ETH to be redirected to its intended recipient with a 10% fee
+    strategy.setRedirectionToken(weth, weth_recipient, 1000, {"from": governance})
+    assert strategy.bribesRedirectionPaths(weth) == weth_recipient
     assert strategy.redirectionFees(weth) == 1000
 
     # NOTE: USDC is not redirected
@@ -212,9 +212,9 @@ def test_claim_bribes_with_redirection(
     assert usdc_amount > 0
     assert eth_amount > 0
 
-    badger_recepient_balance_before = badger.balanceOf(treasury)
-    gno_recepient_balance_before = gno.balanceOf(gno_recepient)
-    weth_recepient_balance_before = weth.balanceOf(weth_recepient)
+    badger_recipient_balance_before = badger.balanceOf(treasury)
+    gno_recipient_balance_before = gno.balanceOf(gno_recipient)
+    weth_recipient_balance_before = weth.balanceOf(weth_recipient)
     usdc_processor_balance_before = usdc.balanceOf(bribes_processor)
 
     # Batch claim tokens
@@ -253,29 +253,29 @@ def test_claim_bribes_with_redirection(
     assert event[0]["token"] == badger
     assert event[0]["amount"] == badger_amount
     # Confirm GNO event
-    assert event[1]["destination"] == gno_recepient
+    assert event[1]["destination"] == gno_recipient
     assert event[1]["token"] == gno
     assert (
         event[1]["amount"]
-        == gno_recepient_balance_before + gno_amount - expected_gno_fee_amount
+        == gno_recipient_balance_before + gno_amount - expected_gno_fee_amount
     )
     # Confirm ETH event
-    assert event[2]["destination"] == weth_recepient
+    assert event[2]["destination"] == weth_recipient
     assert event[2]["token"] == weth
     assert (
         event[2]["amount"]
-        == weth_recepient_balance_before + eth_amount - expected_weth_fee_amount
+        == weth_recipient_balance_before + eth_amount - expected_weth_fee_amount
     )
 
     # Check accounting
-    assert badger.balanceOf(treasury) == badger_recepient_balance_before + badger_amount
+    assert badger.balanceOf(treasury) == badger_recipient_balance_before + badger_amount
     assert (
-        gno.balanceOf(gno_recepient)
-        == gno_recepient_balance_before + gno_amount - expected_gno_fee_amount
+        gno.balanceOf(gno_recipient)
+        == gno_recipient_balance_before + gno_amount - expected_gno_fee_amount
     )
     assert (
-        weth.balanceOf(weth_recepient)
-        == weth_recepient_balance_before + eth_amount - expected_weth_fee_amount
+        weth.balanceOf(weth_recipient)
+        == weth_recipient_balance_before + eth_amount - expected_weth_fee_amount
     )
     assert (
         usdc.balanceOf(bribes_processor) == usdc_processor_balance_before + usdc_amount
