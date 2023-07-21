@@ -29,6 +29,9 @@ import {IDelegateRegistry} from "../interfaces/snapshot/IDelegateRegistry.sol";
  * - Introduces the bribe redirection fee and processing
  * - Introduces a setter function for the above
  * - Introduces snapshot delegation
+ * Version 1.3:
+ * - Removes ETH Incentives special case handling
+ * - Linting fixes
  */
 
 contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
@@ -200,7 +203,7 @@ contract MyStrategy is BaseStrategy, ReentrancyGuardUpgradeable {
 
     /// @dev Specify the version of the Strategy, for upgrades
     function version() external pure returns (string memory) {
-        return "1.2";
+        return "1.3";
     }
 
     /// @dev Does this function require `tend` to be called?
